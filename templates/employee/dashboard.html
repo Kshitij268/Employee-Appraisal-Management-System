@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Employee Dashboard | EAMS{% endblock %}
+{% block page_title %}Employee Workspace{% endblock %}
+
+{% block content %}
+<div class="metrics-grid">
+    <div class="metric-card">
+        <div class="metric-label">Appraisal Status</div>
+        <div class="metric-value" style="font-size: 1.1rem; margin-top: 6px;">
+            {% if metrics.appraisal_status %}
+                <span class="badge badge-{{ metrics.appraisal_status|lower }}">
+                    {{ metrics.appraisal_status|replace('_', ' ')|upper }}
+                </span>
+            {% else %}
+                <span class="badge badge-pending">NOT SUBMITTED</span>
+            {% endif %}
+        </div>
+        <div class="metric-sub">Active review cycle</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Performance Rating</div>
+        <div class="metric-value">
+            {{ "%.2f"|format(metrics.overall_rating) if metrics.overall_rating else ("%.2f"|format(metrics.self_rating) if metrics.self_rating else '-') }}
+        </div>
+        <div class="metric-sub">{{ 'Final Manager Rating' if metrics.overall_rating else ('Self Rating' if metrics.self_rating else 'Unrated') }}</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Assigned Projects</div>
+        <div class="metric-value">{{ metrics.total_projects or 0 }}</div>
+        <div class="metric-sub">Active project deliverables</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Documents</div>
+        <div class="metric-value">{{ metrics.total_documents or 0 }}</div>
+        <div class="metric-sub">{{ metrics.pending_documents or 0 }} pending verification</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Appeals Filed</div>
+        <div class="metric-value">{{ metrics.total_appeals or 0 }}</div>
+        <div class="metric-sub">Status: {{ metrics.latest_appeal_status|upper if metrics.latest_appeal_status else 'None' }}</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">HR Complaints</div>
+        <div class="metric-value">{{ metrics.total_investigations or 0 }}</div>
+        <div class="metric-sub">Status: {{ metrics.latest_investigation_status|replace('_', ' ')|upper if metrics.latest_investigation_status else 'None' }}</div>
+    </div>
+</div>
+
+<div class="grid-2col">
+    <!-- Active Appraisal Overview -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Active Appraisal Summary</h2>
+            <a href="{{ url_for('employee_appraisal') }}" class="btn btn-primary btn-sm">Open Appraisal</a>
+        </div>
+        <div class="card-body">
+            {% if active_appraisal %}
+                <table class="table" style="margin-bottom: 0;">
+                    <tbody>
+                        <tr>
+                            <th style="width: 35%;">Cycle</th>
+                            <td><strong>{{ active_appraisal.appraisal_period }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Status</th>
+                            <td>
+                                <span class="badge badge-{{ active_appraisal.status|lower }}">
+                                    {{ active_appraisal.status|replace('_', ' ')|upper }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Self Rating</th>
+                            <td>{{ "%.2f"|format(active_appraisal.self_rating) if active_appraisal.self_rating else 'N/A' }} / 5.00</td>
+                        </tr>
+                        <tr>
+                            <th>Manager Rating</th>
+                            <td>{{ "%.2f"|format(active_appraisal.overall_rating) if active_appraisal.overall_rating else 'Pending Review' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Manager Feedback</th>
+                            <td>{{ active_appraisal.manager_comments or 'Awaiting review' }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="color: var(--text-muted); padding: 10px 0;">No active appraisal submitted. Click the button above to begin your self-appraisal.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Quick Navigation & Recent Activity -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Quick Actions</h3>
+            </div>
+            <div class="card-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <a href="{{ url_for('employee_appraisal') }}" class="btn btn-secondary">My Appraisal</a>
+                <a href="{{ url_for('employee_documents') }}" class="btn btn-secondary">Upload Documents</a>
+                <a href="{{ url_for('employee_appeals') }}" class="btn btn-secondary">File an Appeal</a>
+                <a href="{{ url_for('employee_investigations') }}" class="btn btn-secondary">HR Complaint</a>
+                <a href="{{ url_for('employee_projects') }}" class="btn btn-secondary">My Projects</a>
+                <a href="{{ url_for('employee_profile') }}" class="btn btn-secondary">Edit Profile</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Recent Activity Log</h3>
+            </div>
+            <div class="card-body">
+                {% if recent_logs %}
+                    <ul style="list-style: none; padding: 0; font-size: 0.85rem;">
+                        {% for log in recent_logs %}
+                            <li style="padding: 6px 0; border-bottom: 1px solid var(--border);">
+                                <span style="font-weight: 600;">{{ log.action }}</span> — {{ log.description }}
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ log.created_at.strftime('%Y-%m-%d %H:%M') if log.created_at else '' }}</div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p style="color: var(--text-muted); font-size: 0.85rem;">No recent audit activity.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

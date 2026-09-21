@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}HR Reports & Analytics | EAMS{% endblock %}
+{% block page_title %}Organization Performance Analytics & Reports{% endblock %}
+
+{% block content %}
+<!-- Executive Summary Metrics -->
+<div class="metrics-grid">
+    <div class="metric-card">
+        <div class="metric-label">Total Appraisals</div>
+        <div class="metric-value">{{ reports.summary.total_appraisals or 0 }}</div>
+        <div class="metric-sub">Recorded across cycles</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Completion Rate</div>
+        <div class="metric-value" style="color: #15803d;">{{ reports.completion_rate }}%</div>
+        <div class="metric-sub">{{ reports.summary.completed_appraisals or 0 }} completed</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">In Review</div>
+        <div class="metric-value" style="color: #075985;">{{ reports.summary.submitted_appraisals or 0 }}</div>
+        <div class="metric-sub">Pending manager action</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Average Score</div>
+        <div class="metric-value">{{ "%.2f"|format(reports.summary.avg_rating) if reports.summary.avg_rating else '-' }}</div>
+        <div class="metric-sub">Org performance average</div>
+    </div>
+</div>
+
+<div class="grid-equal">
+    <!-- Department Performance Breakdown -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Department Rating Overview</h2>
+        </div>
+        <div class="card-body">
+            {% if reports.department_ratings %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Department</th>
+                                <th>Employees</th>
+                                <th>Total Appraisals</th>
+                                <th>Average Rating</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for dept in reports.department_ratings %}
+                                <tr>
+                                    <td><strong>{{ dept.department }}</strong></td>
+                                    <td>{{ dept.employee_count }}</td>
+                                    <td>{{ dept.total_appraisals }}</td>
+                                    <td>
+                                        <strong>{{ "%.2f"|format(dept.avg_rating) if dept.avg_rating else '-' }}</strong> / 5.00
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted);">No department rating data available.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Rating Distribution -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Performance Rating Distribution</h2>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Rating Bucket</th>
+                        <th>Performance Tier</th>
+                        <th>Appraisal Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>4.00 – 5.00</strong></td>
+                        <td><span class="badge badge-approved">Outstanding / Exceeds</span></td>
+                        <td><strong>{{ reports.rating_distribution.bucket_4_5 or 0 }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td><strong>3.00 – 3.99</strong></td>
+                        <td><span class="badge badge-under_review">Meets Expectations</span></td>
+                        <td><strong>{{ reports.rating_distribution.bucket_3_4 or 0 }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td><strong>2.00 – 2.99</strong></td>
+                        <td><span class="badge badge-changes_requested">Needs Improvement</span></td>
+                        <td><strong>{{ reports.rating_distribution.bucket_2_3 or 0 }}</strong></td>
+                    </tr>
+                    <tr>
+                        <td><strong>1.00 – 1.99</strong></td>
+                        <td><span class="badge badge-rejected">Unsatisfactory</span></td>
+                        <td><strong>{{ reports.rating_distribution.bucket_1_2 or 0 }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="grid-equal">
+    <!-- Project Statistics -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Project Delivery Summary</h2>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <tbody>
+                    <tr>
+                        <th style="width: 50%;">Total Corporate Projects</th>
+                        <td><strong>{{ reports.project_stats.total_projects or 0 }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Completed Projects</th>
+                        <td><span class="badge badge-approved">{{ reports.project_stats.completed_projects or 0 }}</span></td>
+                    </tr>
+                    <tr>
+                        <th>In Progress Projects</th>
+                        <td><span class="badge badge-under_review">{{ reports.project_stats.in_progress_projects or 0 }}</span></td>
+                    </tr>
+                    <tr>
+                        <th>Pending Projects</th>
+                        <td><span class="badge badge-pending">{{ reports.project_stats.pending_projects or 0 }}</span></td>
+                    </tr>
+                    <tr>
+                        <th>Average Project Progress</th>
+                        <td><strong>{{ "%.1f"|format(reports.project_stats.avg_progress) }}%</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Milestones Delivered</th>
+                        <td><strong>{{ reports.project_stats.completed_milestones }}</strong> / {{ reports.project_stats.total_milestones }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Audit Activity Summary -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Top Audit Actions</h2>
+            <a href="{{ url_for('hr_audit_logs') }}" class="btn btn-secondary btn-sm">Full Logs</a>
+        </div>
+        <div class="card-body">
+            {% if reports.audit_activity %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Action Type</th>
+                            <th>Total Logged Events</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in reports.audit_activity %}
+                            <tr>
+                                <td><strong>{{ item.action }}</strong></td>
+                                <td>{{ item.action_count }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="color: var(--text-muted);">No audit log metrics recorded.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

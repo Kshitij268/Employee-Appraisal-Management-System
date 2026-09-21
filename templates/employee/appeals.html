@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Appeals & Reconsideration | EAMS{% endblock %}
+{% block page_title %}Appraisal Appeals & Reconsideration{% endblock %}
+
+{% block content %}
+<div class="grid-2col">
+    <!-- Submit Appeal Form -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">File an Appeal</h2>
+            </div>
+            <div class="card-body">
+                <form id="appealForm" onsubmit="handleAppealSubmit(event)">
+                    <div class="form-group">
+                        <label class="form-label" for="appraisalSelect">Select Appraisal Cycle *</label>
+                        <select id="appraisalSelect" name="appraisal_id" class="form-control" required>
+                            <option value="">-- Choose Appraisal Cycle --</option>
+                            {% for app in appraisals %}
+                                <option value="{{ app.appraisal_id }}">
+                                    Cycle: {{ app.appraisal_period }} (Rating: {{ "%.2f"|format(app.overall_rating) if app.overall_rating else 'Pending' }} - Status: {{ app.status }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="appealManagerSelect">Manager *</label>
+                            <select id="appealManagerSelect" name="manager_id" class="form-control" required>
+                                <option value="">-- Select Manager --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="appealHrSelect">HR *</label>
+                            <select id="appealHrSelect" name="hr_id" class="form-control" required>
+                                <option value="">-- Select HR --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="appealReason">Reason for Appeal & Justification *</label>
+                        <textarea id="appealReason" name="reason" class="form-control" rows="6" placeholder="Explain why the manager review, rating, or decision is inaccurate or warrants reconsideration with verified details..." required></textarea>
+                    </div>
+
+                    <div style="text-align: right; margin-top: 10px;">
+                        <button type="submit" class="btn btn-warning">
+                            Submit Appeal to Manager
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Escalation Guidance</h3>
+            </div>
+            <div class="card-body" style="font-size: 0.85rem; color: var(--text-muted);">
+                <p>1. <strong>Appeal Review:</strong> Your direct manager will review your submitted grounds and response comments.</p>
+                <p style="margin-top: 6px;">2. <strong>HR Escalation:</strong> If an appeal is rejected or you believe the manager is behaving unfairly, you may file a formal complaint to Human Resources.</p>
+                <div style="margin-top: 10px;">
+                    <a href="{{ url_for('employee_investigations') }}" class="btn btn-secondary btn-sm">Go to HR Complaints</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Appeals History List -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Submitted Appeals ({{ appeals|length }})</h3>
+            </div>
+            <div class="card-body">
+                {% if appeals %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Appraisal</th>
+                                    <th>Appeal Reason</th>
+                                    <th>Status</th>
+                                    <th>Manager Response</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in appeals %}
+                                    <tr>
+                                        <td><strong>{{ item.appraisal_period }}</strong></td>
+                                        <td style="max-width: 220px;">{{ item.reason }}</td>
+                                        <td>
+                                            <span class="badge badge-{{ item.status|lower }}">
+                                                {{ item.status|upper }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {{ item.manager_response or 'Pending Review' }}
+                                        </td>
+                                        <td>
+                                            {% if item.status in ('rejected', 'approved') %}
+                                                <a href="{{ url_for('employee_investigations') }}?appraisal_id={{ item.appraisal_id }}&appeal_id={{ item.appeal_id }}" class="btn btn-danger btn-sm">
+                                                    Escalate to HR
+                                                </a>
+                                            {% else %}
+                                                <span style="font-size: 0.8rem; color: var(--text-muted);">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p style="color: var(--text-muted); text-align: center; padding: 20px 0;">No appeals currently on file.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Check query param to preselect appraisal
+document.addEventListener("DOMContentLoaded", function () {
+    const urlParams = new URLSearchParams(window.location.search);
+    const appraisalId = urlParams.get("appraisal_id");
+    if (appraisalId) {
+        const select = document.getElementById("appraisalSelect");
+        if (select) select.value = appraisalId;
+    }
+});
+
+async function handleAppealSubmit(e) {
+    e.preventDefault();
+    const appraisal_id = document.getElementById("appraisalSelect").value;
+    const manager_id = document.getElementById("appealManagerSelect").value;
+    const hr_id = document.getElementById("appealHrSelect").value;
+    const reason = document.getElementById("appealReason").value.trim();
+
+    if (!appraisal_id || !manager_id || !hr_id || !reason) {
+        showToast("Please select an appraisal, manager, HR, and provide an appeal reason.", "error");
+        return;
+    }
+
+    try {
+        const res = await apiRequest("/api/appeals", "POST", { appraisal_id, manager_id, hr_id, reason });
+        showToast(res.message || "Appeal submitted successfully.", "success");
+        setTimeout(() => location.reload(), 1000);
+    } catch (err) {
+        showToast(err.message, "error");
+    }
+}
+
+async function loadAppealAssignmentUsers() {
+    const managerSelect = document.getElementById("appealManagerSelect");
+    const hrSelect = document.getElementById("appealHrSelect");
+    try {
+        const [managers, hrUsers] = await Promise.all([
+            apiRequest("/api/managers"), apiRequest("/api/hr-users")
+        ]);
+        (managers.data || []).forEach(user => managerSelect.add(new Option(`${user.name} (${user.email})`, user.user_id)));
+        (hrUsers.data || []).forEach(user => hrSelect.add(new Option(`${user.name} (${user.email})`, user.user_id)));
+        if ((hrUsers.data || []).length === 1) hrSelect.value = hrUsers.data[0].user_id;
+    } catch (err) {
+        showToast(err.message || "Unable to load manager and HR selections.", "error");
+    }
+}
+
+document.addEventListener("DOMContentLoaded", loadAppealAssignmentUsers);
+</script>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}404 - Page Not Found | EAMS{% endblock %}
+
+{% block content %}
+<div style="text-align: center; padding: 40px 20px;">
+    <h1 style="font-size: 3rem; color: var(--text-muted); font-weight: 700;">404</h1>
+    <h2 style="font-size: 1.25rem; margin: 8px 0; color: var(--text-main);">Requested Page Not Found</h2>
+    <p style="color: var(--text-muted); max-width: 450px; margin: 0 auto 20px;">The URL you requested does not exist or may have been relocated.</p>
+    <a href="/" class="btn btn-primary">Return to Portal</a>
+</div>
+{% endblock %}
+
+{% block auth_content %}
+<div class="auth-page-wrapper">
+    <div class="auth-card" style="text-align: center;">
+        <h1 style="font-size: 3rem; color: var(--text-muted); font-weight: 700;">404</h1>
+        <h2 style="font-size: 1.25rem; margin: 8px 0; color: var(--text-main);">Page Not Found</h2>
+        <p style="color: var(--text-muted); margin-bottom: 20px;">The page you are trying to access does not exist.</p>
+        <a href="/" class="btn btn-primary">Back to Sign In</a>
+    </div>
+</div>
+{% endblock %}

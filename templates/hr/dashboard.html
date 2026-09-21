@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}HR Dashboard | EAMS{% endblock %}
+{% block page_title %}HR Administration Portal{% endblock %}
+
+{% block content %}
+<div class="metrics-grid">
+    <div class="metric-card">
+        <div class="metric-label">Total Employees</div>
+        <div class="metric-value">{{ metrics.total_employees or 0 }}</div>
+        <div class="metric-sub">{{ metrics.active_employees or 0 }} active user accounts</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Completed Appraisals</div>
+        <div class="metric-value" style="color: #15803d;">{{ metrics.completed_appraisals or 0 }}</div>
+        <div class="metric-sub">Of {{ metrics.total_appraisals or 0 }} total cycles</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Pending Appraisals</div>
+        <div class="metric-value" style="color: #b91c1c;">{{ metrics.pending_appraisals or 0 }}</div>
+        <div class="metric-sub">In review pipeline</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Average Org Rating</div>
+        <div class="metric-value">{{ "%.2f"|format(metrics.avg_org_rating) if metrics.avg_org_rating else '-' }}</div>
+        <div class="metric-sub">Overall corporate score</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">HR Complaints / Investigations</div>
+        <div class="metric-value" style="color: #b45309;">{{ metrics.pending_investigations or 0 }}</div>
+        <div class="metric-sub">Pending grievance rulings</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Active Projects</div>
+        <div class="metric-value">{{ metrics.total_projects or 0 }}</div>
+        <div class="metric-sub">Corporate deliverables</div>
+    </div>
+</div>
+
+<div class="grid-2col">
+    <!-- Active Grievance Complaints Table -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Pending Employee Complaints ({{ investigations|length }})</h2>
+            <a href="{{ url_for('hr_investigations') }}" class="btn btn-primary btn-sm">All Investigations</a>
+        </div>
+        <div class="card-body">
+            {% if investigations %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Subject</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for inv in investigations[:6] %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ inv.employee_name }}</strong><br>
+                                        <small style="color: var(--text-muted);">{{ inv.department }}</small>
+                                    </td>
+                                    <td>
+                                        <strong>{{ inv.subject }}</strong><br>
+                                        <small style="color: var(--text-muted);">{{ inv.issue_type }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-{{ inv.status|lower }}">
+                                            {{ inv.status|replace('_', ' ')|upper }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('hr_investigations') }}" class="btn btn-secondary btn-sm">
+                                            Review
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted); padding: 10px 0;">No active employee grievance complaints filed.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Quick Navigation & Audit Logs -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Administrative Modules</h3>
+            </div>
+            <div class="card-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <a href="{{ url_for('hr_employees') }}" class="btn btn-secondary">Manage Employees</a>
+                <a href="{{ url_for('hr_investigations') }}" class="btn btn-secondary">Complaints ({{ metrics.pending_investigations or 0 }})</a>
+                <a href="{{ url_for('hr_appraisals') }}" class="btn btn-secondary">Appraisal Overview</a>
+                <a href="{{ url_for('hr_reports') }}" class="btn btn-secondary">Reports & Analytics</a>
+                <a href="{{ url_for('hr_audit_logs') }}" class="btn btn-secondary">Audit Logs</a>
+                <a href="{{ url_for('hr_projects') }}" class="btn btn-secondary">Project Overview</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Recent System Audit Logs</h3>
+                <a href="{{ url_for('hr_audit_logs') }}" class="btn btn-secondary btn-sm">All Logs</a>
+            </div>
+            <div class="card-body">
+                {% if recent_logs %}
+                    <ul style="list-style: none; padding: 0; font-size: 0.85rem;">
+                        {% for log in recent_logs %}
+                            <li style="padding: 6px 0; border-bottom: 1px solid var(--border);">
+                                <span style="font-weight: 600;">{{ log.action }}</span> — {{ log.description }}
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ log.created_at.strftime('%Y-%m-%d %H:%M') if log.created_at else '' }}</div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p style="color: var(--text-muted); font-size: 0.85rem;">No recent audit logs.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

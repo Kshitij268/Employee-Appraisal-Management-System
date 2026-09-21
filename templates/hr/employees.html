@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block title %}Employee Directory | EAMS{% endblock %}
+{% block page_title %}Employee Management{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Corporate Employee Directory ({{ employees|length }})</h2>
+        <button type="button" class="btn btn-primary" onclick="openModal('createEmployeeModal')">
+            + Add New Employee
+        </button>
+    </div>
+    <div class="card-body">
+        <!-- Search & Filter Controls -->
+        <form method="GET" action="{{ url_for('hr_employees') }}" style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+            <input type="text" name="search" class="form-control" style="max-width: 280px;" placeholder="Search name, code, or email..." value="{{ search }}">
+            <select name="department" class="form-control" style="max-width: 200px;">
+                <option value="">All Departments</option>
+                <option value="Engineering" {% if department == 'Engineering' %}selected{% endif %}>Engineering</option>
+                <option value="Human Resources" {% if department == 'Human Resources' %}selected{% endif %}>Human Resources</option>
+                <option value="Marketing" {% if department == 'Marketing' %}selected{% endif %}>Marketing</option>
+                <option value="Finance" {% if department == 'Finance' %}selected{% endif %}>Finance</option>
+                <option value="Operations" {% if department == 'Operations' %}selected{% endif %}>Operations</option>
+            </select>
+            <button type="submit" class="btn btn-secondary">Filter</button>
+            {% if search or department %}
+                <a href="{{ url_for('hr_employees') }}" class="btn btn-secondary">Reset</a>
+            {% endif %}
+        </form>
+
+        {% if employees %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Name & Email</th>
+                            <th>Role</th>
+                            <th>Department & Designation</th>
+                            <th>Age & Address</th>
+                            <th>Manager</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for emp in employees %}
+                            <tr>
+                                <td><strong>{{ emp.employee_code }}</strong></td>
+                                <td>
+                                    <strong>{{ emp.name }}</strong><br>
+                                    <small style="color: var(--text-muted);">{{ emp.email }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge badge-approved">{{ emp.role|upper }}</span>
+                                </td>
+                                <td>
+                                    <strong>{{ emp.department or 'Unassigned' }}</strong><br>
+                                    <small style="color: var(--text-muted);">{{ emp.designation or 'Staff' }}</small>
+                                </td>
+                                <td>
+                                    <div><strong>Age:</strong> {{ emp.age or '-' }}</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); max-width: 180px;">{{ emp.address or '-' }}</div>
+                                </td>
+                                <td>{{ emp.manager_name or 'None (Self/Direct)' }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-secondary btn-sm" onclick='openEditEmployeeModal({{ emp|tojson }})'>
+                                        Edit
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p style="color: var(--text-muted); text-align: center; padding: 20px 0;">No employee records match your criteria.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal: Create Employee -->
+<div class="modal-overlay" id="createEmployeeModal">
+    <div class="modal-card" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Create New Employee Profile</h3>
+            <button class="modal-close" onclick="closeModal('createEmployeeModal')">&times;</button>
+        </div>
+        <form id="createEmployeeForm" onsubmit="handleCreateEmployee(event)">
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="empName">Full Name *</label>
+                        <input type="text" id="empName" name="name" class="form-control" placeholder="Jane Doe" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="empEmail">Email Address *</label>
+                        <input type="email" id="empEmail" name="email" class="form-control" placeholder="jane.doe@example.com" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="empCode">Employee Code *</label>
+                        <input type="text" id="empCode" name="employee_code" class="form-control" placeholder="EMP-ENG-010" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="empRole">Role *</label>
+                        <select id="empRole" name="role" class="form-control" required>
+                            <option value="employee" selected>Employee</option>
+                            <option value="manager">Manager</option>
+                            <option value="hr">HR Administrator</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="empPassword">Initial Password *</label>
+                        <input type="password" id="empPassword" name="password" class="form-control" placeholder="Min. 8 characters" required minlength="8">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="empAge">Age</label>
+                        <input type="number" id="empAge" name="age" class="form-control" placeholder="e.g. 30" min="16" max="100">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="empDept">Department</label>
+                        <input type="text" id="empDept" name="department" class="form-control" placeholder="Engineering" value="Engineering">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="empDesig">Designation</label>
+                        <input type="text" id="empDesig" name="designation" class="form-control" placeholder="Software Engineer">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="empPhone">Phone</label>
+                        <input type="text" id="empPhone" name="phone" class="form-control" placeholder="+1 (555) 000-0000">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="empLocation">Location</label>
+                        <input type="text" id="empLocation" name="location" class="form-control" placeholder="Headquarters - New York">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="empManager">Reporting Manager</label>
+                        <select id="empManager" name="manager_id" class="form-control">
+                            <option value="">-- No Direct Manager --</option>
+                            {% for mgr in managers %}
+                                <option value="{{ mgr.user_id }}">{{ mgr.name }} ({{ mgr.employee_code }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="empJoinDate">Joining Date</label>
+                        <input type="date" id="empJoinDate" name="joining_date" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="empAddress">Residential Address</label>
+                    <textarea id="empAddress" name="address" class="form-control" rows="2" placeholder="Street, City, State, ZIP"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('createEmployeeModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Employee Profile</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Edit Employee -->
+<div class="modal-overlay" id="editEmployeeModal">
+    <div class="modal-card" style="max-width: 550px;">
+        <div class="modal-header">
+            <h3 class="modal-title">Edit Employee Profile</h3>
+            <button class="modal-close" onclick="closeModal('editEmployeeModal')">&times;</button>
+        </div>
+        <form id="editEmployeeForm" onsubmit="handleEditEmployee(event)">
+            <input type="hidden" id="editEmpId">
+            <div class="modal-body">
+                <div style="margin-bottom: 12px; background-color: var(--bg-subtle); padding: 8px 12px; border: 1px solid var(--border);">
+                    <strong id="editEmpTitle"></strong>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="editAge">Age</label>
+                        <input type="number" id="editAge" name="age" class="form-control" min="16" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="editPhone">Phone</label>
+                        <input type="text" id="editPhone" name="phone" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="editDept">Department</label>
+                        <input type="text" id="editDept" name="department" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="editDesig">Designation</label>
+                        <input type="text" id="editDesig" name="designation" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="editLocation">Location</label>
+                        <input type="text" id="editLocation" name="location" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="editManager">Reporting Manager</label>
+                        <select id="editManager" name="manager_id" class="form-control">
+                            <option value="">-- No Direct Manager --</option>
+                            {% for mgr in managers %}
+                                <option value="{{ mgr.user_id }}">{{ mgr.name }} ({{ mgr.employee_code }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="editAddress">Residential Address</label>
+                    <textarea id="editAddress" name="address" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editEmployeeModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function handleCreateEmployee(e) {
+    e.preventDefault();
+    const data = {
+        name: document.getElementById("empName").value.trim(),
+        email: document.getElementById("empEmail").value.trim(),
+        employee_code: document.getElementById("empCode").value.trim(),
+        role: document.getElementById("empRole").value,
+        password: document.getElementById("empPassword").value,
+        age: document.getElementById("empAge").value || null,
+        department: document.getElementById("empDept").value.trim(),
+        designation: document.getElementById("empDesig").value.trim(),
+        phone: document.getElementById("empPhone").value.trim(),
+        location: document.getElementById("empLocation").value.trim(),
+        manager_id: document.getElementById("empManager").value || null,
+        joining_date: document.getElementById("empJoinDate").value || null,
+        address: document.getElementById("empAddress").value.trim()
+    };
+
+    try {
+        const res = await apiRequest("/api/employees", "POST", data);
+        showToast(res.message || "Employee created successfully.", "success");
+        closeModal("createEmployeeModal");
+        setTimeout(() => location.reload(), 1000);
+    } catch (err) {
+        showToast(err.message, "error");
+    }
+}
+
+function openEditEmployeeModal(emp) {
+    document.getElementById("editEmpId").value = emp.employee_id;
+    document.getElementById("editEmpTitle").textContent = `${emp.name} (${emp.employee_code}) - ${emp.email}`;
+    document.getElementById("editAge").value = emp.age || "";
+    document.getElementById("editPhone").value = emp.phone || "";
+    document.getElementById("editDept").value = emp.department || "";
+    document.getElementById("editDesig").value = emp.designation || "";
+    document.getElementById("editLocation").value = emp.location || "";
+    document.getElementById("editManager").value = emp.manager_id || "";
+    document.getElementById("editAddress").value = emp.address || "";
+    openModal("editEmployeeModal");
+}
+
+async function handleEditEmployee(e) {
+    e.preventDefault();
+    const id = document.getElementById("editEmpId").value;
+    const data = {
+        age: document.getElementById("editAge").value || null,
+        phone: document.getElementById("editPhone").value.trim(),
+        department: document.getElementById("editDept").value.trim(),
+        designation: document.getElementById("editDesig").value.trim(),
+        location: document.getElementById("editLocation").value.trim(),
+        manager_id: document.getElementById("editManager").value || null,
+        address: document.getElementById("editAddress").value.trim()
+    };
+
+    try {
+        const res = await apiRequest(`/api/employees/${id}`, "PUT", data);
+        showToast(res.message || "Employee profile updated.", "success");
+        closeModal("editEmployeeModal");
+        setTimeout(() => location.reload(), 1000);
+    } catch (err) {
+        showToast(err.message, "error");
+    }
+}
+</script>
+{% endblock %}

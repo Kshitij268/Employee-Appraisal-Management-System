@@ -1,0 +1,5 @@
+
+/*  
+cd ".\FInal dbms (solo)"
+.\venv\Scripts\python.exe app.py
+ */

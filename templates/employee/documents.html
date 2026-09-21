@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Documents | EAMS{% endblock %}
+{% block page_title %}Performance & Verification Documents{% endblock %}
+
+{% block content %}
+<div class="grid-2col">
+    <!-- Upload New Document Form -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Upload Verification Document</h2>
+            </div>
+            <div class="card-body">
+                <form id="docUploadForm" onsubmit="handleDocumentUpload(event)" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label class="form-label" for="docType">Document Category / Type *</label>
+                        <select id="docType" name="document_type" class="form-control" required>
+                            <option value="Annual Performance Summary" selected>Annual Performance Summary</option>
+                            <option value="Technical Certification">Technical Certification</option>
+                            <option value="Project Deliverable Sign-off">Project Deliverable Sign-off</option>
+                            <option value="Client Commendation">Client Commendation</option>
+                            <option value="Other Performance Proof">Other Performance Proof</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="docFile">Attach File (PDF, DOCX, PNG, JPG) *</label>
+                        <input type="file" id="docFile" name="file" class="form-control" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" required>
+                    </div>
+
+                    <div style="text-align: right; margin-top: 10px;">
+                        <button type="submit" class="btn btn-primary">
+                            Upload Document
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Uploaded Documents List -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">My Uploaded Documents ({{ documents|length }})</h3>
+            </div>
+            <div class="card-body">
+                {% if documents %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Document</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Manager Feedback</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for doc in documents %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ url_for('static', filename=doc.document_path) }}" target="_blank">
+                                                <strong>{{ doc.document_name }}</strong>
+                                            </a>
+                                            <div style="font-size: 0.78rem; color: var(--text-muted);">
+                                                Submitted: {{ doc.submitted_at.strftime('%Y-%m-%d') if doc.submitted_at else 'N/A' }}
+                                            </div>
+                                        </td>
+                                        <td>{{ doc.document_type }}</td>
+                                        <td>
+                                            <span class="badge badge-{{ doc.status|lower }}">
+                                                {{ doc.status|upper }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {{ doc.manager_comments or '-' }}
+                                        </td>
+                                        <td>
+                                            {% if doc.status in ('rejected', 'resubmit') %}
+                                                <button type="button" class="btn btn-warning btn-sm" onclick="openResubmitModal({{ doc.document_id }}, '{{ doc.document_name }}')">
+                                                    Resubmit
+                                                </button>
+                                            {% else %}
+                                                <span style="font-size: 0.8rem; color: var(--text-muted);">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p style="color: var(--text-muted); text-align: center; padding: 20px 0;">No verification documents uploaded yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Resubmit Document -->
+<div class="modal-overlay" id="resubmitModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title">Resubmit Document</h3>
+            <button class="modal-close" onclick="closeModal('resubmitModal')">&times;</button>
+        </div>
+        <form id="resubmitForm" onsubmit="handleDocumentResubmit(event)">
+            <input type="hidden" id="resubmitDocId">
+            <div class="modal-body">
+                <div style="margin-bottom: 12px;">
+                    <strong>Current File:</strong> <span id="resubmitDocName"></span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="resubmitFile">Select New Replacement File *</label>
+                    <input type="file" id="resubmitFile" class="form-control" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('resubmitModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Upload Replacement</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function handleDocumentUpload(e) {
+    e.preventDefault();
+    const form = document.getElementById("docUploadForm");
+    const formData = new FormData(form);
+
+    try {
+        const response = await fetch("/api/documents/upload", {
+            method: "POST",
+            body: formData
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || "Upload failed");
+
+        showToast(result.message || "Document uploaded successfully.", "success");
+        setTimeout(() => location.reload(), 1000);
+    } catch (err) {
+        showToast(err.message, "error");
+    }
+}
+
+function openResubmitModal(docId, docName) {
+    document.getElementById("resubmitDocId").value = docId;
+    document.getElementById("resubmitDocName").textContent = docName;
+    openModal("resubmitModal");
+}
+
+async function handleDocumentResubmit(e) {
+    e.preventDefault();
+    const docId = document.getElementById("resubmitDocId").value;
+    const fileInput = document.getElementById("resubmitFile");
+
+    if (!fileInput.files || fileInput.files.length === 0) {
+        showToast("Please select a file to upload.", "error");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+
+    try {
+        const response = await fetch(`/api/documents/${docId}/resubmit`, {
+            method: "POST",
+            body: formData
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || "Resubmission failed");
+
+        showToast(result.message || "Document resubmitted successfully.", "success");
+        closeModal("resubmitModal");
+        setTimeout(() => location.reload(), 1000);
+    } catch (err) {
+        showToast(err.message, "error");
+    }
+}
+</script>
+{% endblock %}

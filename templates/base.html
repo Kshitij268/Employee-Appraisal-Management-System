@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}EAMS - Employee Appraisal Management System{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    {% if session.get('user_id') %}
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <a href="/" class="brand-logo">
+                    <span>EAMS</span>
+                    <span class="brand-badge">{{ session.get('role', 'user')|upper }}</span>
+                </a>
+            </div>
+
+            <div class="sidebar-user">
+                <div class="user-name">{{ session.get('name', 'User') }}</div>
+                <div class="user-role-badge">{{ session.get('role', 'Employee')|capitalize }}</div>
+            </div>
+
+            <nav class="sidebar-nav">
+                {% if session.get('role') == 'employee' %}
+                    <div class="nav-label">Workspace</div>
+                    <a href="{{ url_for('employee_dashboard') }}" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
+                        Dashboard
+                    </a>
+                    <a href="{{ url_for('employee_profile') }}" class="nav-link {% if active_page == 'profile' %}active{% endif %}">
+                        Profile
+                    </a>
+                    <a href="{{ url_for('employee_documents') }}" class="nav-link {% if active_page == 'documents' %}active{% endif %}">
+                        Documents
+                    </a>
+                    <a href="{{ url_for('employee_appraisal') }}" class="nav-link {% if active_page == 'appraisal' %}active{% endif %}">
+                        Appraisal
+                    </a>
+                    <a href="{{ url_for('employee_appeals') }}" class="nav-link {% if active_page == 'appeals' %}active{% endif %}">
+                        Appeals
+                    </a>
+                    <a href="{{ url_for('employee_investigations') }}" class="nav-link {% if active_page == 'investigations' %}active{% endif %}">
+                        HR Complaint
+                    </a>
+                    <a href="{{ url_for('employee_projects') }}" class="nav-link {% if active_page == 'projects' %}active{% endif %}">
+                        Projects
+                    </a>
+                {% elif session.get('role') == 'manager' %}
+                    <div class="nav-label">Management</div>
+                    <a href="{{ url_for('manager_dashboard') }}" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
+                        Dashboard
+                    </a>
+                    <a href="{{ url_for('manager_profile') }}" class="nav-link {% if active_page == 'profile' %}active{% endif %}">
+                        Profile
+                    </a>
+                    <a href="{{ url_for('manager_documents') }}" class="nav-link {% if active_page == 'documents' %}active{% endif %}">
+                        Documents
+                    </a>
+                    <a href="{{ url_for('manager_appraisals') }}" class="nav-link {% if active_page == 'appraisals' %}active{% endif %}">
+                        Appraisal Reviews
+                    </a>
+                    <a href="{{ url_for('manager_appeals') }}" class="nav-link {% if active_page == 'appeals' %}active{% endif %}">
+                        Appeal Reviews
+                    </a>
+                    <a href="{{ url_for('manager_team') }}" class="nav-link {% if active_page == 'team' %}active{% endif %}">
+                        Team
+                    </a>
+                    <a href="{{ url_for('manager_projects') }}" class="nav-link {% if active_page == 'projects' %}active{% endif %}">
+                        Projects
+                    </a>
+                {% elif session.get('role') in ('hr', 'admin') %}
+                    <div class="nav-label">Administration</div>
+                    <a href="{{ url_for('hr_dashboard') }}" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
+                        Dashboard
+                    </a>
+                    <a href="{{ url_for('hr_profile') }}" class="nav-link {% if active_page == 'profile' %}active{% endif %}">
+                        Profile
+                    </a>
+                    <a href="{{ url_for('hr_employees') }}" class="nav-link {% if active_page == 'employees' %}active{% endif %}">
+                        Employees
+                    </a>
+                    <a href="{{ url_for('hr_investigations') }}" class="nav-link {% if active_page == 'investigations' %}active{% endif %}">
+                        Investigations
+                    </a>
+                    <a href="{{ url_for('hr_appraisals') }}" class="nav-link {% if active_page == 'appraisals' %}active{% endif %}">
+                        Appraisals
+                    </a>
+                    <a href="{{ url_for('hr_reports') }}" class="nav-link {% if active_page == 'reports' %}active{% endif %}">
+                        Reports
+                    </a>
+                    <a href="{{ url_for('hr_audit_logs') }}" class="nav-link {% if active_page == 'audit_logs' %}active{% endif %}">
+                        Audit Logs
+                    </a>
+                    <a href="{{ url_for('hr_projects') }}" class="nav-link {% if active_page == 'projects' %}active{% endif %}">
+                        Projects
+                    </a>
+                {% endif %}
+            </nav>
+
+            <div class="sidebar-footer">
+                <a href="{{ url_for('logout') }}" class="logout-link">
+                    Sign Out
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Wrapper -->
+        <div class="main-wrapper">
+            <header class="top-navbar">
+                <div class="nav-left">
+                    <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle Navigation">☰</button>
+                    <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+                </div>
+                <div class="nav-right">
+                    <span>{{ session.get('email') }}</span>
+                </div>
+            </header>
+
+            <main class="page-content">
+                <div id="toastContainer"></div>
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">
+                                <span>{{ message }}</span>
+                                <button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:inherit;">&times;</button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+    {% else %}
+        {% block auth_content %}{% endblock %}
+    {% endif %}
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

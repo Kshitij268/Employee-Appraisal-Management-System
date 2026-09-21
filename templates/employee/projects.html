@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}My Projects | EAMS{% endblock %}
+{% block page_title %}Projects & Deliverables{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Project Deliverables & Milestones ({{ projects|length }})</h2>
+        <button class="btn btn-primary" onclick="openCreateProjectModal()">+ Add New Project</button>
+    </div>
+    <div class="card-body">
+        {% if projects %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Project Title & Scope</th>
+                            <th>Category</th>
+                            <th>Milestones</th>
+                            <th>Progress</th>
+                            <th>Priority</th>
+                            <th>Due Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for project in projects %}
+                        <tr>
+                            <td>
+                                <strong>{{ project.name }}</strong><br>
+                                <small style="color: var(--text-muted);">{{ project.description or 'No scope details provided.' }}</small>
+                            </td>
+                            <td>{{ project.category or 'General' }}</td>
+                            <td>
+                                <strong>{{ project.milestones_completed }}</strong> / {{ project.milestones_total }}
+                            </td>
+                            <td>
+                                <strong>{{ project.progress }}%</strong>
+                            </td>
+                            <td><span class="badge badge-under_review">{{ project.priority }}</span></td>
+                            <td>{{ project.due_date.strftime('%Y-%m-%d') if project.due_date else 'N/A' }}</td>
+                            <td><span class="badge badge-{{ project.status|lower }}">{{ project.status|replace('_', ' ')|upper }}</span></td>
+                            <td>
+                                <div style="display: flex; gap: 4px;">
+                                    <button class="btn btn-secondary btn-sm" onclick='openEditProjectModal({{ project|tojson }})'>Edit</button>
+                                    <button class="btn btn-danger btn-sm" onclick="handleDeleteProject({{ project.project_id }})">Delete</button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p style="color: var(--text-muted); text-align: center; padding: 20px 0;">No projects currently assigned or registered. Click "+ Add New Project" to record deliverables.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Create / Edit Project Modal -->
+<div class="modal-overlay" id="projectModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title" id="projectModalTitle">Add New Project</h3>
+            <button class="modal-close" onclick="closeModal('projectModal')">&times;</button>
+        </div>
+        <form id="projectForm" onsubmit="handleProjectFormSubmit(event)">
+            <input type="hidden" id="project_id" name="project_id">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label" for="project_name">Project Title *</label>
+                    <input type="text" id="project_name" name="name" class="form-control" placeholder="e.g. NextGen Microservices Refactor" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="project_category">Category</label>
+                        <select id="project_category" name="category" class="form-control">
+                            <option value="Platform Engineering">Platform Engineering</option>
+                            <option value="UI/UX Design">UI/UX Design</option>
+                            <option value="Infrastructure">Infrastructure</option>
+                            <option value="Database Performance">Database Performance</option>
+                            <option value="Compliance & Security">Compliance & Security</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="project_priority">Priority</label>
+                        <select id="project_priority" name="priority" class="form-control">
+                            <option value="Low">Low</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="High">High</option>
+                            <option value="Critical">Critical</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="milestones_completed">Completed Milestones</label>
+                        <input type="number" id="milestones_completed" name="milestones_completed" min="0" class="form-control" value="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="milestones_total">Total Milestones</label>
+                        <input type="number" id="milestones_total" name="milestones_total" min="0" class="form-control" value="0" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="project_progress">Progress (%) (0 - 100)</label>
+                        <input type="number" id="project_progress" name="progress" min="0" max="100" class="form-control" value="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="project_status">Status</label>
+                        <select id="project_status" name="status" class="form-control">
+                            <option value="pending">Pending</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="project_due_date">Delivery Date</label>
+                    <input type="date" id="project_due_date" name="due_date" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="project_description">Description & Scope</label>
+                    <textarea id="project_description" name="description" class="form-control" rows="3" placeholder="Core architecture details, key stakeholder impact, and technical delivery notes..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('projectModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="projectSubmitBtn">Save Project</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let isProjectEditMode = false;
+
+function openCreateProjectModal() {
+    isProjectEditMode = false;
+    document.getElementById("projectModalTitle").textContent = "Add New Project";
+    document.getElementById("projectSubmitBtn").textContent = "Create Project";
+    document.getElementById("projectForm").reset();
+    document.getElementById("project_id").value = "";
+    document.getElementById("milestones_completed").value = 0;
+    document.getElementById("milestones_total").value = 0;
+    document.getElementById("project_progress").value = 0;
+    openModal("projectModal");
+}
+
+function openEditProjectModal(project) {
+    isProjectEditMode = true;
+    document.getElementById("projectModalTitle").textContent = "Edit Project";
+    document.getElementById("projectSubmitBtn").textContent = "Update Project";
+    document.getElementById("project_id").value = project.project_id;
+    document.getElementById("project_name").value = project.name || "";
+    document.getElementById("project_category").value = project.category || "Platform Engineering";
+    document.getElementById("project_priority").value = project.priority || "Medium";
+    document.getElementById("milestones_completed").value = project.milestones_completed || 0;
+    document.getElementById("milestones_total").value = project.milestones_total || 0;
+    document.getElementById("project_progress").value = project.progress || 0;
+    document.getElementById("project_status").value = project.status || "pending";
+    document.getElementById("project_due_date").value = project.due_date ? project.due_date.substring(0, 10) : "";
+    document.getElementById("project_description").value = project.description || "";
+    openModal("projectModal");
+}
+
+async function handleProjectFormSubmit(e) {
+    e.preventDefault();
+    const projectId = document.getElementById("project_id").value;
+    const completed = parseInt(document.getElementById("milestones_completed").value) || 0;
+    const total = parseInt(document.getElementById("milestones_total").value) || 0;
+    const progress = parseInt(document.getElementById("project_progress").value) || 0;
+
+    if (completed > total) {
+        showToast("Completed milestones cannot exceed total milestones", "error");
+        return;
+    }
+    if (progress < 0 || progress > 100) {
+        showToast("Progress must be between 0 and 100", "error");
+        return;
+    }
+
+    const data = {
+        name: document.getElementById("project_name").value.trim(),
+        category: document.getElementById("project_category").value,
+        priority: document.getElementById("project_priority").value,
+        milestones_completed: completed,
+        milestones_total: total,
+        progress: progress,
+        status: document.getElementById("project_status").value,
+        due_date: document.getElementById("project_due_date").value || null,
+        description: document.getElementById("project_description").value.trim()
+    };
+
+    try {
+        let res;
+        if (isProjectEditMode && projectId) {
+            res = await apiRequest(`/api/projects/${projectId}`, "PUT", data);
+        } else {
+            res = await apiRequest("/api/projects", "POST", data);
+        }
+        showToast(res.message || "Project saved successfully.", "success");
+        closeModal("projectModal");
+        setTimeout(() => window.location.reload(), 800);
+    } catch (err) {
+        showToast(err.message, "error");
+    }
+}
+
+async function handleDeleteProject(projectId) {
+    if (!confirm("Are you sure you want to delete this project deliverable?")) return;
+    try {
+        const res = await apiRequest(`/api/projects/${projectId}`, "DELETE");
+        showToast(res.message || "Project deleted.", "success");
+        setTimeout(() => window.location.reload(), 800);
+    } catch (err) {
+        showToast(err.message, "error");
+    }
+}
+</script>
+{% endblock %}

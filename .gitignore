@@ -1,0 +1,30 @@
+# Environment / secrets
+.env
+
+# Python virtual environments
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Flask
+instance/
+
+# Testing/cache
+.pytest_cache/
+
+# Uploaded files
+static/uploads/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+# macOS metadata
+__MACOSX/
+.DS_Store

@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Appraisal Reviews | EAMS{% endblock %}
+{% block page_title %}Team Appraisal Reviews{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Submitted Appraisals for Review ({{ appraisals|length }})</h2>
+    </div>
+    <div class="card-body">
+        {% if appraisals %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Cycle</th>
+                            <th>Self Rating</th>
+                            <th>Manager Rating</th>
+                            <th>Status</th>
+                            <th>Manager Comments</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for app in appraisals %}
+                            <tr>
+                                <td>
+                                    <strong>{{ app.employee_name }}</strong><br>
+                                    <small style="color: var(--text-muted);">{{ app.employee_code }} • {{ app.designation }}</small>
+                                </td>
+                                <td><strong>{{ app.appraisal_period }}</strong></td>
+                                <td>{{ "%.2f"|format(app.self_rating) if app.self_rating else '-' }} / 5.00</td>
+                                <td>
+                                    {% if app.overall_rating %}
+                                        <strong>{{ "%.2f"|format(app.overall_rating) }}</strong> / 5.00
+                                    {% else %}
+                                        <span style="color: var(--text-muted);">Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge badge-{{ app.status|lower }}">
+                                        {{ app.status|replace('_', ' ')|upper }}
+                                    </span>
+                                </td>
+                                <td style="max-width: 250px;">{{ app.manager_comments or '-' }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-primary btn-sm" onclick='openAppraisalReviewModal({{ app|tojson }})'>
+                                        Review Appraisal
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p style="color: var(--text-muted); text-align: center; padding: 20px 0;">No employee appraisals found for review.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal: Review Appraisal -->
+<div class="modal-overlay" id="reviewAppraisalModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title">Conduct Appraisal Review</h3>
+            <button class="modal-close" onclick="closeModal('reviewAppraisalModal')">&times;</button>
+        </div>
+        <form id="appraisalReviewForm" onsubmit="handleAppraisalReview(event)">
+            <input type="hidden" id="modalAppraisalId">
+            <div class="modal-body">
+                <div style="margin-bottom: 12px; background-color: var(--bg-subtle); padding: 10px; border: 1px solid var(--border);">
+                    <div><strong>Employee:</strong> <span id="modalEmpTitle"></span></div>
+                    <div><strong>Appraisal Cycle:</strong> <span id="modalAppCycle"></span></div>
+                    <div><strong>Employee Self Rating:</strong> <span id="modalSelfRating"></span> / 5.00</div>
+                    <div style="margin-top: 6px;"><strong>Employee Self Assessment Comments:</strong></div>
+                    <div id="modalEmpComments" style="font-size: 0.88rem; margin-top: 2px;"></div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="reviewStatus">Appraisal Decision / Status *</label>
+                        <select id="reviewStatus" name="status" class="form-control" required>
+                            <option value="APPROVED">APPROVED</option>
+                            <option value="REJECTED">REJECTED</option>
+                            <option value="CHANGES_REQUESTED">CHANGES_REQUESTED</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="managerRating">Manager Overall Rating (1.00 - 5.00)</label>
+                        <input type="number" id="managerRating" name="overall_rating" class="form-control" step="0.1" min="1.0" max="5.0" placeholder="e.g. 4.20">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="managerComments">Manager Review Comments & Feedback *</label>
+                    <textarea id="managerComments" name="manager_comments" class="form-control" rows="4" placeholder="Provide feedback, reasons for approval/rejection, or requested adjustments..." required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('reviewAppraisalModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Review</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function openAppraisalReviewModal(app) {
+    document.getElementById("modalAppraisalId").value = app.appraisal_id;
+    document.getElementById("modalEmpTitle").textContent = `${app.employee_name} (${app.employee_code || ''})`;
+    document.getElementById("modalAppCycle").textContent = app.appraisal_period;
+    document.getElementById("modalSelfRating").textContent = app.self_rating ? parseFloat(app.self_rating).toFixed(2) : "N/A";
+    document.getElementById("modalEmpComments").textContent = app.employee_comments || "No comments provided.";
+    document.getElementById("reviewStatus").value = app.status.toUpperCase() === "UNDER_REVIEW" ? "APPROVED" : app.status.toUpperCase();
+    document.getElementById("managerRating").value = app.overall_rating || "";
+    document.getElementById("managerComments").value = app.manager_comments || "";
+    openModal("reviewAppraisalModal");
+}
+
+async function handleAppraisalReview(e) {
+    e.preventDefault();
+    const id = document.getElementById("modalAppraisalId").value;
+    const status = document.getElementById("reviewStatus").value;
+    const overall_rating = document.getElementById("managerRating").value || null;
+    const manager_comments = document.getElementById("managerComments").value.trim();
+
+    try {
+        const res = await apiRequest(`/api/appraisals/${id}/review`, "POST", {
+            status,
+            overall_rating,
+            manager_comments
+        });
+        showToast(res.message || "Appraisal review saved.", "success");
+        closeModal("reviewAppraisalModal");
+        setTimeout(() => location.reload(), 1000);
+    } catch (err) {
+        showToast(err.message, "error");
+    }
+}
+</script>
+{% endblock %}

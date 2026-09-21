@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Team Projects | EAMS{% endblock %}
+{% block page_title %}Team Project Deliverables{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Direct Reports Deliverables & Status ({{ projects|length }})</h2>
+    </div>
+    <div class="card-body">
+        {% if projects %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Project Title</th>
+                            <th>Category</th>
+                            <th>Milestones</th>
+                            <th>Progress</th>
+                            <th>Priority</th>
+                            <th>Due Date</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in projects %}
+                        <tr>
+                            <td>
+                                <strong>{{ p.employee_name }}</strong><br>
+                                <small style="color: var(--text-muted);">{{ p.employee_code }} • {{ p.department }}</small>
+                            </td>
+                            <td>
+                                <strong>{{ p.name }}</strong><br>
+                                <small style="color: var(--text-muted);">{{ p.description or 'No scope notes.' }}</small>
+                            </td>
+                            <td>{{ p.category or 'General' }}</td>
+                            <td><strong>{{ p.milestones_completed }}</strong> / {{ p.milestones_total }}</td>
+                            <td>
+                                <strong>{{ p.progress }}%</strong>
+                            </td>
+                            <td><span class="badge badge-under_review">{{ p.priority }}</span></td>
+                            <td>{{ p.due_date.strftime('%Y-%m-%d') if p.due_date else 'N/A' }}</td>
+                            <td><span class="badge badge-{{ p.status|lower }}">{{ p.status|replace('_', ' ')|upper }}</span></td>
+                            <td>
+                                <button class="btn btn-secondary btn-sm" onclick='openUpdateTeamProjectModal({{ p|tojson }})'>
+                                    Update
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p style="color: var(--text-muted); text-align: center; padding: 20px 0;">No project records found for direct reports.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Update Project Progress Modal -->
+<div class="modal-overlay" id="teamProjectModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title">Update Project Milestones & Progress</h3>
+            <button class="modal-close" onclick="closeModal('teamProjectModal')">&times;</button>
+        </div>
+        <form id="teamProjectForm" onsubmit="handleTeamProjectSubmit(event)">
+            <input type="hidden" id="tp_project_id">
+            <input type="hidden" id="tp_name">
+            <input type="hidden" id="tp_category">
+            <input type="hidden" id="tp_description">
+            <input type="hidden" id="tp_priority">
+            <input type="hidden" id="tp_due_date">
+
+            <div class="modal-body">
+                <div style="background: var(--bg-subtle); padding: 10px; border: 1px solid var(--border); margin-bottom: 12px;">
+                    <div style="font-weight: 700;" id="tp_emp_name"></div>
+                    <div style="font-size: 0.88rem;" id="tp_title"></div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="tp_completed">Completed Milestones</label>
+                        <input type="number" id="tp_completed" name="milestones_completed" min="0" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="tp_total">Total Milestones</label>
+                        <input type="number" id="tp_total" name="milestones_total" min="0" class="form-control" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="tp_progress">Progress (%) (0 - 100) *</label>
+                        <input type="number" id="tp_progress" name="progress" min="0" max="100" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="tp_status">Status *</label>
+                        <select id="tp_status" name="status" class="form-control" required>
+                            <option value="pending">Pending</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('teamProjectModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Project Update</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function openUpdateTeamProjectModal(p) {
+    document.getElementById("tp_project_id").value = p.project_id;
+    document.getElementById("tp_name").value = p.name;
+    document.getElementById("tp_category").value = p.category || "Platform Engineering";
+    document.getElementById("tp_description").value = p.description || "";
+    document.getElementById("tp_priority").value = p.priority || "Medium";
+    document.getElementById("tp_due_date").value = p.due_date ? p.due_date.substring(0, 10) : "";
+    document.getElementById("tp_emp_name").textContent = "Employee: " + p.employee_name;
+    document.getElementById("tp_title").textContent = "Project: " + p.name;
+    document.getElementById("tp_completed").value = p.milestones_completed || 0;
+    document.getElementById("tp_total").value = p.milestones_total || 0;
+    document.getElementById("tp_progress").value = p.progress;
+    document.getElementById("tp_status").value = p.status;
+    openModal("teamProjectModal");
+}
+
+async function handleTeamProjectSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById("tp_project_id").value;
+    const completed = parseInt(document.getElementById("tp_completed").value) || 0;
+    const total = parseInt(document.getElementById("tp_total").value) || 0;
+    const progress = parseInt(document.getElementById("tp_progress").value) || 0;
+
+    if (completed > total) {
+        showToast("Completed milestones cannot exceed total milestones", "error");
+        return;
+    }
+
+    const data = {
+        name: document.getElementById("tp_name").value,
+        category: document.getElementById("tp_category").value,
+        description: document.getElementById("tp_description").value,
+        priority: document.getElementById("tp_priority").value,
+        due_date: document.getElementById("tp_due_date").value || null,
+        milestones_completed: completed,
+        milestones_total: total,
+        progress: progress,
+        status: document.getElementById("tp_status").value
+    };
+
+    try {
+        const res = await apiRequest(`/api/projects/${id}`, "PUT", data);
+        showToast(res.message || "Project updated.", "success");
+        closeModal("teamProjectModal");
+        setTimeout(() => window.location.reload(), 800);
+    } catch (err) {
+        showToast(err.message, "error");
+    }
+}
+</script>
+{% endblock %}

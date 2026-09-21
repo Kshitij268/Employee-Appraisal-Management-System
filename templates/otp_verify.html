@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Verify Email | Employee Appraisal Management System{% endblock %}
+
+{% block auth_content %}
+<div class="auth-page-wrapper">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1 class="auth-title">Verify Your Email</h1>
+            <p class="auth-subtitle">Enter the 4-digit verification code sent to <strong>{{ email or 'your Gmail' }}</strong> to complete your account registration.</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        <span>{{ message }}</span>
+                        <button onclick="this.parentElement.remove()" style="background:none; border:none; cursor:pointer; font-size:1.1rem; color:inherit;">&times;</button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ verify_url or url_for('register_otp_verify') }}">
+            <div class="form-group">
+                <label class="form-label" for="otpCode">4-Digit Verification Code</label>
+                <input type="text" id="otpCode" name="otp_code" maxlength="4" pattern="\d{4}" class="form-control" placeholder="1234" required autofocus style="text-align:center; font-size:1.4rem; letter-spacing:8px; font-weight:bold;">
+                <small style="display:block; margin-top:6px; color:var(--text-muted); font-size:0.8rem;">Code is valid for 2 minutes.</small>
+            </div>
+
+            <div style="margin-top: 18px;">
+                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 10px;">
+                    Verify & Create Account
+                </button>
+            </div>
+        </form>
+
+        <div style="margin-top: 16px; display:flex; justify-content:space-between; font-size:0.85rem;">
+            <a href="{{ resend_url or url_for('resend_register_otp') }}" style="color:var(--primary);">Resend Code</a>
+            <a href="{{ url_for('register') }}" style="color:var(--text-muted);">Back to Sign Up</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

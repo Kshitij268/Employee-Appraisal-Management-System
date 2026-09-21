@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block title %}My Appraisal | EAMS{% endblock %}
+{% block page_title %}Employee Performance Appraisal{% endblock %}
+
+{% block content %}
+<div class="grid-2col">
+    <!-- Active Appraisal Status & Feedback -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Active Appraisal Cycle</h2>
+                {% if active_appraisal %}
+                    <span class="badge badge-{{ active_appraisal.status|lower }}">
+                        {{ active_appraisal.status|replace('_', ' ')|upper }}
+                    </span>
+                {% else %}
+                    <span class="badge badge-pending">NO ACTIVE APPRAISAL</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if active_appraisal %}
+                    <table class="table" style="margin-bottom: 16px;">
+                        <tbody>
+                            <tr>
+                                <th style="width: 40%;">Appraisal Period</th>
+                                <td><strong>{{ active_appraisal.appraisal_period }}</strong></td>
+                            </tr>
+                            <tr>
+                                <th>Submission Status</th>
+                                <td>
+                                    <span class="badge badge-{{ active_appraisal.status|lower }}">
+                                        {{ active_appraisal.status|replace('_', ' ')|upper }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Self Rating</th>
+                                <td><strong>{{ "%.2f"|format(active_appraisal.self_rating) if active_appraisal.self_rating else 'N/A' }}</strong> / 5.00</td>
+                            </tr>
+                            <tr>
+                                <th>Manager Rating</th>
+                                <td>
+                                    {% if active_appraisal.overall_rating %}
+                                        <strong>{{ "%.2f"|format(active_appraisal.overall_rating) }}</strong> / 5.00
+                                    {% else %}
+                                        <span style="color: var(--text-muted);">Pending Manager Review</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Reviewing Manager</th>
+                                <td>{{ active_appraisal.manager_name or employee.manager_name or 'Unassigned' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Selected HR</th>
+                                <td>{{ active_appraisal.hr_name or 'Unassigned' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div style="margin-bottom: 14px;">
+                        <div class="form-label">Employee Self-Comments:</div>
+                        <div style="background-color: var(--bg-subtle); border: 1px solid var(--border); padding: 8px 12px; font-size: 0.9rem;">
+                            {{ active_appraisal.employee_comments or 'No comments entered.' }}
+                        </div>
+                    </div>
+
+                    {% if active_appraisal.manager_comments %}
+                        <div style="margin-bottom: 14px;">
+                            <div class="form-label">Manager Review Feedback:</div>
+                            <div style="background-color: var(--bg-subtle); border: 1px solid var(--border); padding: 8px 12px; font-size: 0.9rem;">
+                                {{ active_appraisal.manager_comments }}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Action buttons based on status -->
+                    <div style="margin-top: 16px; display: flex; gap: 8px;">
+                        {% if active_appraisal.status in ('REJECTED', 'rejected', 'CHANGES_REQUESTED', 'changes_requested', 'APPROVED', 'approved') %}
+                            <a href="{{ url_for('employee_appeals') }}?appraisal_id={{ active_appraisal.appraisal_id }}" class="btn btn-warning">
+                                Submit Appeal / Reconsideration
+                            </a>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <p style="color: var(--text-muted); padding: 10px 0;">You have not submitted an appraisal for the current cycle yet. Please fill out the self-appraisal form.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Submit Self-Appraisal Form -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Submit Self-Appraisal</h3>
+            </div>
+            <div class="card-body">
+                <form id="appraisalForm" onsubmit="handleAppraisalSubmit(event)">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="appraisalPeriod">Appraisal Period *</label>
+                            <select id="appraisalPeriod" name="appraisal_period" class="form-control" required>
+                                <option value="FY2026-Q2" selected>FY2026-Q2 (Current Cycle)</option>
+                                <option value="FY2026-Q1">FY2026-Q1</option>
+                                <option value="FY2025-Annual">FY2025 Annual</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="selfRating">Self Performance Rating (1.00 - 5.00) *</label>
+                            <input type="number" id="selfRating" name="self_rating" class="form-control" step="0.1" min="1.0" max="5.0" placeholder="e.g. 4.50" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="managerSelect">Manager *</label>
+                            <select id="managerSelect" name="manager_id" class="form-control" required>
+                                <option value="">-- Select Manager --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="hrSelect">HR *</label>
+                            <select id="hrSelect" name="hr_id" class="form-control" required>
+                                <option value="">-- Select HR --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="employeeComments">Key Achievements & Self Assessment Comments *</label>
+                        <textarea id="employeeComments" name="employee_comments" class="form-control" rows="5" placeholder="Detail your deliverables, goals met, project outcomes, and key accomplishments for this cycle..." required></textarea>
+                    </div>
+
+                    <div style="text-align: right; margin-top: 10px;">
+                        <button type="submit" class="btn btn-primary">
+                            Submit Self-Appraisal
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Past Appraisals Table -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Appraisal History</h3>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Cycle</th>
+                                <th>Self Rating</th>
+                                <th>Manager Rating</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if history or active_appraisal %}
+                                {% if active_appraisal %}
+                                    <tr>
+                                        <td><strong>{{ active_appraisal.appraisal_period }}</strong> (Active)</td>
+                                        <td>{{ "%.2f"|format(active_appraisal.self_rating) if active_appraisal.self_rating else '-' }}</td>
+                                        <td>{{ "%.2f"|format(active_appraisal.overall_rating) if active_appraisal.overall_rating else '-' }}</td>
+                                        <td>
+                                            <span class="badge badge-{{ active_appraisal.status|lower }}">
+                                                {{ active_appraisal.status|replace('_', ' ')|upper }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                                {% for app in history %}
+                                    <tr>
+                                        <td><strong>{{ app.appraisal_period }}</strong></td>
+                                        <td>{{ "%.2f"|format(app.self_rating) if app.self_rating else '-' }}</td>
+                                        <td>{{ "%.2f"|format(app.overall_rating) if app.overall_rating else '-' }}</td>
+                                        <td>
+                                            <span class="badge badge-{{ app.status|lower }}">
+                                                {{ app.status|replace('_', ' ')|upper }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" style="text-align: center; color: var(--text-muted);">No appraisal history found.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function handleAppraisalSubmit(e) {
+    e.preventDefault();
+    const period = document.getElementById("appraisalPeriod").value;
+    const self_rating = document.getElementById("selfRating").value;
+    const employee_comments = document.getElementById("employeeComments").value.trim();
+    const manager_id = document.getElementById("managerSelect").value;
+    const hr_id = document.getElementById("hrSelect").value;
+
+    try {
+        const res = await apiRequest("/api/appraisals", "POST", {
+            appraisal_period: period,
+            manager_id,
+            hr_id,
+            self_rating: self_rating,
+            employee_comments: employee_comments
+        });
+        showToast(res.message || "Appraisal submitted successfully.", "success");
+        setTimeout(() => location.reload(), 1000);
+    } catch (err) {
+        showToast(err.message, "error");
+    }
+}
+
+async function loadAssignmentUsers() {
+    const managerSelect = document.getElementById("managerSelect");
+    const hrSelect = document.getElementById("hrSelect");
+    try {
+        const [managers, hrUsers] = await Promise.all([
+            apiRequest("/api/managers"), apiRequest("/api/hr-users")
+        ]);
+        (managers.data || []).forEach(user => {
+            const option = new Option(`${user.name} (${user.email})`, user.user_id);
+            managerSelect.add(option);
+        });
+        (hrUsers.data || []).forEach(user => {
+            const option = new Option(`${user.name} (${user.email})`, user.user_id);
+            hrSelect.add(option);
+        });
+        if ((hrUsers.data || []).length === 1) hrSelect.value = hrUsers.data[0].user_id;
+    } catch (err) {
+        showToast(err.message || "Unable to load manager and HR selections.", "error");
+    }
+}
+
+document.addEventListener("DOMContentLoaded", loadAssignmentUsers);
+</script>
+{% endblock %}

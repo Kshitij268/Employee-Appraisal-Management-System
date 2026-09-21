@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Administrator Dashboard | Employee Appraisal Management System{% endblock %}
+
+{% block content %}
+<div class="dashboard-header" style="margin-bottom: 24px;">
+    <h2>System Administration Console</h2>
+    <p style="color: var(--text-muted);">Overview of system users, projects, and security controls.</p>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">
+                <span>{{ message }}</span>
+                <button onclick="this.parentElement.remove()" style="background:none; border:none; cursor:pointer; font-size:1.1rem; color:inherit;">&times;</button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div class="card" style="padding: 20px; margin-bottom: 20px;">
+    <h3 style="margin-top:0;">Administrator Quick Controls</h3>
+    <p>System Administrator role active. Comprehensive APIs available at <code>/api/administrator/employees</code> and <code>/api/administrator/projects</code>.</p>
+</div>
+{% endblock %}

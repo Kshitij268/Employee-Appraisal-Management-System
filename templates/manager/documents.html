@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Document Reviews | EAMS{% endblock %}
+{% block page_title %}Team Document Verification{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Team Performance Proofs & Deliverables ({{ documents|length }})</h2>
+    </div>
+    <div class="card-body">
+        {% if documents %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Document Name</th>
+                            <th>Type</th>
+                            <th>Submitted Date</th>
+                            <th>Status</th>
+                            <th>Manager Comments</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in documents %}
+                            <tr>
+                                <td>
+                                    <strong>{{ doc.employee_name }}</strong><br>
+                                    <small style="color: var(--text-muted);">{{ doc.employee_code }} • {{ doc.department }}</small>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('static', filename=doc.document_path) }}" target="_blank">
+                                        <strong>{{ doc.document_name }}</strong>
+                                    </a>
+                                </td>
+                                <td>{{ doc.document_type }}</td>
+                                <td>{{ doc.submitted_at.strftime('%Y-%m-%d') if doc.submitted_at else 'N/A' }}</td>
+                                <td>
+                                    <span class="badge badge-{{ doc.status|lower }}">
+                                        {{ doc.status|upper }}
+                                    </span>
+                                </td>
+                                <td>{{ doc.manager_comments or '-' }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-primary btn-sm" onclick='openDocReviewModal({{ doc|tojson }})'>
+                                        Verify / Review
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p style="color: var(--text-muted); text-align: center; padding: 20px 0;">No documents submitted by direct reports.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal: Review Document -->
+<div class="modal-overlay" id="docReviewModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title">Verify & Review Document</h3>
+            <button class="modal-close" onclick="closeModal('docReviewModal')">&times;</button>
+        </div>
+        <form id="docReviewForm" onsubmit="handleDocReviewSubmit(event)">
+            <input type="hidden" id="modalDocId">
+            <div class="modal-body">
+                <div style="margin-bottom: 12px; background-color: var(--bg-subtle); padding: 10px; border: 1px solid var(--border);">
+                    <div><strong>Employee:</strong> <span id="modalDocEmp"></span></div>
+                    <div><strong>Document:</strong> <span id="modalDocTitle"></span></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="docReviewAction">Verification Decision *</label>
+                    <select id="docReviewAction" name="action" class="form-control" required>
+                        <option value="approved">Approve Document</option>
+                        <option value="rejected">Reject Document</option>
+                        <option value="resubmit">Request Resubmission / Changes</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="docReviewComments">Verification Comments</label>
+                    <textarea id="docReviewComments" name="comments" class="form-control" rows="3" placeholder="Enter feedback or clarification details for the employee..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('docReviewModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Verification</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function openDocReviewModal(doc) {
+    document.getElementById("modalDocId").value = doc.document_id;
+    document.getElementById("modalDocEmp").textContent = `${doc.employee_name} (${doc.employee_code || ''})`;
+    document.getElementById("modalDocTitle").textContent = doc.document_name;
+    document.getElementById("docReviewAction").value = doc.status === "pending" ? "approved" : doc.status;
+    document.getElementById("docReviewComments").value = doc.manager_comments || "";
+    openModal("docReviewModal");
+}
+
+async function handleDocReviewSubmit(e) {
+    e.preventDefault();
+    const docId = document.getElementById("modalDocId").value;
+    const action = document.getElementById("docReviewAction").value;
+    const comments = document.getElementById("docReviewComments").value.trim();
+
+    try {
+        const res = await apiRequest(`/api/documents/${docId}/review`, "POST", { action, comments });
+        showToast(res.message || "Document review recorded.", "success");
+        closeModal("docReviewModal");
+        setTimeout(() => location.reload(), 1000);
+    } catch (err) {
+        showToast(err.message, "error");
+    }
+}
+</script>
+{% endblock %}

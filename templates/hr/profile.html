@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Profile | EAMS{% endblock %}
+{% block page_title %}HR Administrator Profile{% endblock %}
+
+{% block content %}
+<div class="grid-2col">
+    <!-- Profile Card Summary & Info -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">HR Administrator Details</h2>
+        </div>
+        <div class="card-body">
+            <table class="table" style="margin-bottom: 0;">
+                <tbody>
+                    <tr>
+                        <th style="width: 40%;">HR Code</th>
+                        <td><strong>{{ profile.employee_code or 'HR-ADMIN' }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Role</th>
+                        <td><span class="badge badge-approved">HR ADMINISTRATOR</span></td>
+                    </tr>
+                    <tr>
+                        <th>Email</th>
+                        <td>{{ profile.email }}</td>
+                    </tr>
+                    <tr>
+                        <th>Department</th>
+                        <td>{{ profile.department or 'Human Resources' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Designation</th>
+                        <td>{{ profile.designation or 'HR Director' }}</td>
+                    </tr>
+                    <tr>
+                        <th>Joining Date</th>
+                        <td>{{ profile.joining_date.strftime('%B %d, %Y') if profile.joining_date else 'N/A' }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Update Information & Change Password -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Edit Personal Details</h3>
+            </div>
+            <div class="card-body">
+                <form id="profileForm" onsubmit="handleProfileUpdate(event)">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="profName">Full Name *</label>
+                            <input type="text" id="profName" name="name" class="form-control" value="{{ profile.name }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="profAge">Age</label>
+                            <input type="number" id="profAge" name="age" class="form-control" value="{{ profile.age or '' }}" min="16" max="100" placeholder="e.g. 38">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="profPhone">Phone Number</label>
+                            <input type="text" id="profPhone" name="phone" class="form-control" value="{{ profile.phone or '' }}" placeholder="+1 (555) 000-0000">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="profLocation">Location / Office</label>
+                            <input type="text" id="profLocation" name="location" class="form-control" value="{{ profile.location or '' }}" placeholder="e.g. Headquarters - New York">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="profAddress">Residential Address</label>
+                        <textarea id="profAddress" name="address" class="form-control" rows="2" placeholder="Street, City, State, ZIP">{{ profile.address or '' }}</textarea>
+                    </div>
+
+                    <div style="text-align: right; margin-top: 10px;">
+                        <button type="submit" class="btn btn-primary">Save Profile</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Change Password</h3>
+            </div>
+            <div class="card-body">
+                <form id="changePasswordForm" onsubmit="handlePasswordChange(event)">
+                    <div class="form-group">
+                        <label class="form-label" for="currentPassword">Current Password *</label>
+                        <input type="password" id="currentPassword" name="current_password" class="form-control" placeholder="••••••••••••" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="newPassword">New Password *</label>
+                            <input type="password" id="newPassword" name="new_password" class="form-control" placeholder="Min. 8 characters" required minlength="8">
+                            <div class="password-strength-box">
+                                <span id="pwdStrengthLabel" class="strength-label"></span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="confirmPassword">Confirm New Password *</label>
+                            <input type="password" id="confirmPassword" name="confirm_password" class="form-control" placeholder="Confirm password" required minlength="8">
+                        </div>
+                    </div>
+
+                    <div style="text-align: right; margin-top: 10px;">
+                        <button type="submit" class="btn btn-secondary">Update Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    bindPasswordStrength("newPassword", "pwdStrengthLabel");
+});
+
+async function handleProfileUpdate(e) {
+    e.preventDefault();
+    const name = document.getElementById("profName").value.trim();
+    const age = document.getElementById("profAge").value.trim();
+    const phone = document.getElementById("profPhone").value.trim();
+    const location = document.getElementById("profLocation").value.trim();
+    const address = document.getElementById("profAddress").value.trim();
+
+    try {
+        const res = await apiRequest("/api/profile/update", "POST", { name, age, phone, location, address });
+        showToast(res.message || "Profile updated successfully.", "success");
+        setTimeout(() => location.reload(), 1000);
+    } catch (err) {
+        showToast(err.message, "error");
+    }
+}
+
+async function handlePasswordChange(e) {
+    e.preventDefault();
+    const current_password = document.getElementById("currentPassword").value;
+    const new_password = document.getElementById("newPassword").value;
+    const confirm_password = document.getElementById("confirmPassword").value;
+
+    if (new_password !== confirm_password) {
+        showToast("New passwords do not match.", "error");
+        return;
+    }
+
+    try {
+        const res = await apiRequest("/api/profile/change-password", "POST", {
+            current_password,
+            new_password,
+            confirm_password
+        });
+        showToast(res.message || "Password changed successfully.", "success");
+        document.getElementById("changePasswordForm").reset();
+        document.getElementById("pwdStrengthLabel").textContent = "";
+    } catch (err) {
+        showToast(err.message, "error");
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In | Employee Appraisal Management System{% endblock %}
+
+{% block auth_content %}
+<div class="auth-page-wrapper">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1 class="auth-title">Employee Appraisal Portal</h1>
+            <p class="auth-subtitle">Sign in to your account</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        <span>{{ message }}</span>
+                        <button onclick="this.parentElement.remove()" style="background:none;
+                        border:none;
+                        cursor:pointer;
+                        font-size:1.1rem;
+                        color:inherit;
+                        ">&times;</button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('login') }}">
+            <div class="form-group">
+                <label class="form-label" for="loginEmail">Email Address</label>
+                <input type="email" id="loginEmail" name="email" class="form-control" placeholder="user@example.com" required autofocus>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="loginPassword">Password</label>
+                <input type="password" id="loginPassword" name="password" class="form-control" placeholder="••••••••••••" required>
+            </div>
+
+            <div style="margin-top: 16px;">
+                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 8px;">
+                    Sign In
+                </button>
+            </div>
+        </form>
+
+        <div style="margin-top: 14px; text-align: center; font-size: 0.85rem; color: var(--text-muted);">
+            Need an account? <a href="{{ url_for('register') }}">Register here</a>
+        </div>
+
+        <div class="demo-credentials-box">
+            <div style="font-weight:600; margin-bottom: 6px; color: var(--text-main);">Demo Logins (Password: Password@123):</div>
+            <div>
+                <button type="button" class="demo-role-btn" onclick="fillLogin('employee@example.com', 'Password@123')">
+                    Employee (David)
+                </button>
+                <button type="button" class="demo-role-btn" onclick="fillLogin('manager@example.com', 'Password@123')">
+                    Manager (Alex)
+                </button>
+                <button type="button" class="demo-role-btn" onclick="fillLogin('hr@example.com', 'Password@123')">
+                    HR (Sarah)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Register | Employee Appraisal Management System{% endblock %}
+
+{% block auth_content %}
+<div class="auth-page-wrapper">
+    <div class="auth-card" style="max-width: 520px;">
+        <div class="auth-header">
+            <h1 class="auth-title">Create Account</h1>
+            <p class="auth-subtitle">Register a new Employee or Manager account in EAMS</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        <span>{{ message }}</span>
+                        <button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:inherit;">&times;</button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('register') }}">
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="regName">Full Name *</label>
+                    <input type="text" id="regName" name="name" class="form-control" placeholder="John Doe" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="regEmail">Work Email *</label>
+                    <input type="email" id="regEmail" name="email" class="form-control" placeholder="john.doe@example.com" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="regRole">Role *</label>
+                <select id="regRole" name="role" class="form-control" required>
+                    <option value="employee" selected>Employee</option>
+                    <option value="manager">Manager</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="regPassword">Password *</label>
+                    <input type="password" id="regPassword" name="password" class="form-control" placeholder="Min. 8 characters" required minlength="8">
+                    <div class="password-strength-box">
+                        <span id="regStrengthLabel" class="strength-label"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="regConfirmPassword">Confirm Password *</label>
+                    <input type="password" id="regConfirmPassword" name="confirm_password" class="form-control" placeholder="Confirm password" required minlength="8">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="regAge">Age</label>
+                    <input type="number" id="regAge" name="age" class="form-control" placeholder="e.g. 28" min="16" max="100">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="regPhone">Phone Number</label>
+                    <input type="text" id="regPhone" name="phone" class="form-control" placeholder="+1 (555) 000-0000">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="regDepartment">Department</label>
+                    <input type="text" id="regDepartment" name="department" class="form-control" placeholder="e.g. Engineering" value="Engineering">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="regLocation">Location / Office</label>
+                    <input type="text" id="regLocation" name="location" class="form-control" placeholder="e.g. New York Headquarters">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="regAddress">Residential Address</label>
+                <textarea id="regAddress" name="address" class="form-control" rows="2" placeholder="Street, City, State, ZIP"></textarea>
+            </div>
+
+            <div style="margin-top: 16px;">
+                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 8px;">
+                    Create Account
+                </button>
+            </div>
+        </form>
+
+        <div style="margin-top: 16px; text-align: center; font-size: 0.85rem; color: var(--text-muted);">
+            Already have an account? <a href="{{ url_for('login') }}">Sign in here</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    bindPasswordStrength("regPassword", "regStrengthLabel");
+});
+</script>
+{% endblock %}

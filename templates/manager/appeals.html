@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Appeal Reviews | EAMS{% endblock %}
+{% block page_title %}Appraisal Appeal Reviews{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Employee Grievance Appeals ({{ appeals|length }})</h2>
+    </div>
+    <div class="card-body">
+        {% if appeals %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Cycle</th>
+                            <th>Original Rating</th>
+                            <th>Employee Appeal Reason</th>
+                            <th>Status</th>
+                            <th>Manager Response</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for app in appeals %}
+                            <tr>
+                                <td>
+                                    <strong>{{ app.employee_name }}</strong><br>
+                                    <small style="color: var(--text-muted);">{{ app.employee_code }} • {{ app.department }}</small>
+                                </td>
+                                <td>{{ app.appraisal_period }}</td>
+                                <td>{{ "%.2f"|format(app.overall_rating) if app.overall_rating else '-' }}</td>
+                                <td style="max-width: 250px;">{{ app.reason }}</td>
+                                <td>
+                                    <span class="badge badge-{{ app.status|lower }}">
+                                        {{ app.status|upper }}
+                                    </span>
+                                </td>
+                                <td>{{ app.manager_response or 'Pending Review' }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-primary btn-sm" onclick='openAppealReviewModal({{ app|tojson }})'>
+                                        Review Appeal
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p style="color: var(--text-muted); text-align: center; padding: 20px 0;">No appeals currently submitted by direct reports.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal: Review Appeal -->
+<div class="modal-overlay" id="reviewAppealModal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 class="modal-title">Review Employee Appeal</h3>
+            <button class="modal-close" onclick="closeModal('reviewAppealModal')">&times;</button>
+        </div>
+        <form id="appealReviewForm" onsubmit="handleAppealReview(event)">
+            <input type="hidden" id="modalAppealId">
+            <div class="modal-body">
+                <div style="margin-bottom: 12px; background-color: var(--bg-subtle); padding: 10px; border: 1px solid var(--border);">
+                    <div><strong>Employee:</strong> <span id="modalEmpName"></span></div>
+                    <div><strong>Appraisal Cycle:</strong> <span id="modalCycle"></span></div>
+                    <div style="margin-top: 6px;"><strong>Employee Appeal Reason:</strong></div>
+                    <div id="modalReason" style="font-size: 0.88rem; color: var(--text-main); margin-top: 2px;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="appealDecision">Appeal Decision *</label>
+                    <select id="appealDecision" name="status" class="form-control" required>
+                        <option value="approved">Approve / Uphold Appeal (Reconsider Rating)</option>
+                        <option value="rejected">Reject Appeal</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="managerAppealResponse">Manager Official Response *</label>
+                    <textarea id="managerAppealResponse" name="manager_response" class="form-control" rows="4" placeholder="Explain the rationale behind your appeal ruling..." required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('reviewAppealModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Decision</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function openAppealReviewModal(appeal) {
+    document.getElementById("modalAppealId").value = appeal.appeal_id;
+    document.getElementById("modalEmpName").textContent = `${appeal.employee_name} (${appeal.employee_code || ''})`;
+    document.getElementById("modalCycle").textContent = appeal.appraisal_period;
+    document.getElementById("modalReason").textContent = appeal.reason;
+    document.getElementById("appealDecision").value = appeal.status === "rejected" ? "rejected" : "approved";
+    document.getElementById("managerAppealResponse").value = appeal.manager_response || "";
+    openModal("reviewAppealModal");
+}
+
+async function handleAppealReview(e) {
+    e.preventDefault();
+    const appeal_id = document.getElementById("modalAppealId").value;
+    const status = document.getElementById("appealDecision").value;
+    const manager_response = document.getElementById("managerAppealResponse").value.trim();
+    const appraisal_status = status === "approved" ? "APPROVED" : "REJECTED";
+
+    try {
+        const res = await apiRequest(`/api/appeals/${appeal_id}/review`, "POST", {
+            status,
+            manager_response,
+            appraisal_status
+        });
+        showToast(res.message || "Appeal decision recorded.", "success");
+        closeModal("reviewAppealModal");
+        setTimeout(() => location.reload(), 1000);
+    } catch (err) {
+        showToast(err.message, "error");
+    }
+}
+</script>
+{% endblock %}

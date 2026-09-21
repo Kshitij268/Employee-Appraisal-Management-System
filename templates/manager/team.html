@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}My Direct Reports | EAMS{% endblock %}
+{% block page_title %}Direct Reports & Team Directory{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Assigned Team Members ({{ team|length }})</h2>
+    </div>
+    <div class="card-body">
+        {% if team %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Team Member</th>
+                            <th>Designation & Department</th>
+                            <th>Employee Code</th>
+                            <th>Location</th>
+                            <th>Joining Date</th>
+                            <th>Appraisal Status</th>
+                            <th>Active Projects</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in team %}
+                        <tr>
+                            <td>
+                                <strong>{{ m.name }}</strong><br>
+                                <small style="color: var(--text-muted);">{{ m.email }}</small>
+                            </td>
+                            <td>
+                                <strong>{{ m.designation or 'Staff' }}</strong><br>
+                                <small style="color: var(--text-muted);">{{ m.department or 'Engineering' }}</small>
+                            </td>
+                            <td><strong>{{ m.employee_code }}</strong></td>
+                            <td>{{ m.location or 'Remote' }}</td>
+                            <td>{{ m.joining_date.strftime('%B %d, %Y') if m.joining_date else 'N/A' }}</td>
+                            <td>
+                                {% if m.latest_appraisal_status %}
+                                    <span class="badge badge-{{ m.latest_appraisal_status|lower }}">
+                                        {{ m.latest_appraisal_status|replace('_', ' ')|upper }}
+                                    </span>
+                                    {% if m.latest_appraisal_rating %}
+                                        <div style="font-size: 0.8rem; font-weight: 600; margin-top: 2px;">
+                                            Rating: {{ "%.2f"|format(m.latest_appraisal_rating) }}
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    <span style="color: var(--text-muted); font-size: 0.85rem;">Not Submitted</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>{{ m.total_projects or 0 }}</strong> projects
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p style="color: var(--text-muted); text-align: center; padding: 20px 0;">No direct reports currently mapped to your profile.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Manager Dashboard | EAMS{% endblock %}
+{% block page_title %}Management Portal{% endblock %}
+
+{% block content %}
+<div class="metrics-grid">
+    <div class="metric-card">
+        <div class="metric-label">Direct Reports</div>
+        <div class="metric-value">{{ metrics.direct_report_count or 0 }}</div>
+        <div class="metric-sub">Team members supervised</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Pending Appraisals</div>
+        <div class="metric-value" style="color: #b91c1c;">{{ metrics.pending_appraisals or 0 }}</div>
+        <div class="metric-sub">Awaiting manager review</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Pending Documents</div>
+        <div class="metric-value">{{ metrics.pending_documents or 0 }}</div>
+        <div class="metric-sub">Awaiting verification</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Pending Appeals</div>
+        <div class="metric-value" style="color: #b45309;">{{ metrics.pending_appeals or 0 }}</div>
+        <div class="metric-sub">Employee grievance appeals</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Team Projects</div>
+        <div class="metric-value">{{ metrics.total_team_projects or 0 }}</div>
+        <div class="metric-sub">Active project deliverables</div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-label">Average Performance</div>
+        <div class="metric-value">{{ "%.2f"|format(metrics.avg_team_performance) if metrics.avg_team_performance else '-' }}</div>
+        <div class="metric-sub">Team rating average</div>
+    </div>
+</div>
+
+<div class="grid-2col">
+    <!-- Direct Reports Directory -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Team Direct Reports ({{ team|length }})</h2>
+            <a href="{{ url_for('manager_team') }}" class="btn btn-secondary btn-sm">Full Team</a>
+        </div>
+        <div class="card-body">
+            {% if team %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Designation</th>
+                                <th>Appraisal Status</th>
+                                <th>Latest Rating</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for member in team %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ member.name }}</strong><br>
+                                        <small style="color: var(--text-muted);">{{ member.employee_code }}</small>
+                                    </td>
+                                    <td>{{ member.designation or 'Staff' }}</td>
+                                    <td>
+                                        {% if member.latest_appraisal_status %}
+                                            <span class="badge badge-{{ member.latest_appraisal_status|lower }}">
+                                                {{ member.latest_appraisal_status|replace('_', ' ')|upper }}
+                                            </span>
+                                        {% else %}
+                                            <span style="color: var(--text-muted); font-size: 0.8rem;">None</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ "%.2f"|format(member.latest_appraisal_rating) if member.latest_appraisal_rating else '-' }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted); padding: 10px 0;">No direct reports assigned to your management profile.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Quick Navigation & Pending Reviews -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Management Workflows</h3>
+            </div>
+            <div class="card-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <a href="{{ url_for('manager_appraisals') }}" class="btn btn-secondary">
+                    Review Appraisals ({{ metrics.pending_appraisals or 0 }})
+                </a>
+                <a href="{{ url_for('manager_appeals') }}" class="btn btn-secondary">
+                    Review Appeals ({{ metrics.pending_appeals or 0 }})
+                </a>
+                <a href="{{ url_for('manager_documents') }}" class="btn btn-secondary">
+                    Review Documents ({{ metrics.pending_documents or 0 }})
+                </a>
+                <a href="{{ url_for('manager_team') }}" class="btn btn-secondary">
+                    Manage Team
+                </a>
+                <a href="{{ url_for('manager_projects') }}" class="btn btn-secondary">
+                    Team Projects
+                </a>
+                <a href="{{ url_for('manager_profile') }}" class="btn btn-secondary">
+                    Edit Profile
+                </a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Recent Submissions</h3>
+            </div>
+            <div class="card-body">
+                {% if appraisals %}
+                    <ul style="list-style: none; padding: 0; font-size: 0.85rem;">
+                        {% for app in appraisals[:5] %}
+                            <li style="padding: 6px 0; border-bottom: 1px solid var(--border);">
+                                <strong>{{ app.employee_name }}</strong> submitted <strong>{{ app.appraisal_period }}</strong>
+                                <span class="badge badge-{{ app.status|lower }}" style="margin-left: 6px;">{{ app.status|replace('_', ' ')|upper }}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p style="color: var(--text-muted); font-size: 0.85rem;">No recent appraisal submissions.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

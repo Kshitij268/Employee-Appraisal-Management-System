@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Appraisal Overview | EAMS{% endblock %}
+{% block page_title %}Organization Appraisals Overview{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">All Employee Appraisals ({{ appraisals|length }})</h2>
+    </div>
+    <div class="card-body">
+        {% if appraisals %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Cycle</th>
+                            <th>Self Rating</th>
+                            <th>Manager Rating</th>
+                            <th>Reviewing Manager</th>
+                            <th>Status</th>
+                            <th>Submission Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for app in appraisals %}
+                            <tr>
+                                <td>
+                                    <strong>{{ app.employee_name }}</strong><br>
+                                    <small style="color: var(--text-muted);">{{ app.employee_code }} • {{ app.department }}</small>
+                                </td>
+                                <td><strong>{{ app.appraisal_period }}</strong></td>
+                                <td>{{ "%.2f"|format(app.self_rating) if app.self_rating else '-' }} / 5.00</td>
+                                <td>
+                                    {% if app.overall_rating %}
+                                        <strong>{{ "%.2f"|format(app.overall_rating) }}</strong> / 5.00
+                                    {% else %}
+                                        <span style="color: var(--text-muted);">Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ app.manager_name or 'Unassigned' }}</td>
+                                <td>
+                                    <span class="badge badge-{{ app.status|lower }}">
+                                        {{ app.status|replace('_', ' ')|upper }}
+                                    </span>
+                                </td>
+                                <td>{{ app.created_at.strftime('%Y-%m-%d') if app.created_at else 'N/A' }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p style="color: var(--text-muted); text-align: center; padding: 20px 0;">No employee appraisal records found.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
