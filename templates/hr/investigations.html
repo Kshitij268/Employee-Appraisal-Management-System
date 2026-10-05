@@ -1,133 +1,171 @@
 {% extends "base.html" %}
 
-{% block title %}HR Complaints & Investigations | EAMS{% endblock %}
-{% block page_title %}HR Grievance Complaints & Investigations{% endblock %}
+{% block title %}HR Grievance Investigations - EAMS HR{% endblock %}
 
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        <h2 class="card-title">Employee Grievances & Escalations ({{ investigations|length }})</h2>
+<div class="content-header">
+    <div class="d-flex justify-between align-center flex-wrap gap-1">
+        <div>
+            <h1 class="page-title">Employee Grievances & Investigations</h1>
+            <p class="page-subtitle">Review, investigate, and record formal HR rulings on workplace complaints and appraisal disputes</p>
+        </div>
+        <div class="d-flex gap-1 align-center">
+            <span class="badge badge-info"><span class="badge-dot dot-cyan"></span> Total Complaints: {{ investigations|length }}</span>
+            <span class="badge badge-warning"><span class="badge-dot dot-amber"></span> Pending: {{ investigations|rejectattr('status', 'in', ['RESOLVED', 'CLOSED', 'RESOLVED_UPHELD', 'RESOLVED_REJECTED'])|list|length }}</span>
+        </div>
     </div>
-    <div class="card-body">
-        {% if investigations %}
+</div>
+
+<div class="content-body">
+    <div class="card">
+        <div class="card-header d-flex justify-between align-center">
+            <h3 class="card-title" style="font-size: 1.15rem; font-weight: 700; color: #1e293b;">
+                <i class="fas fa-search" style="color: #6366f1; margin-right: 8px;"></i>
+                HR Investigation Docket
+            </h3>
+        </div>
+        <div class="card-body p-0">
+            {% if investigations %}
             <div class="table-responsive">
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>Employee</th>
-                            <th>Subject & Grievance</th>
-                            <th>Related Appraisal / Appeal</th>
+                            <th>Complaint ID</th>
+                            <th>Complainant</th>
+                            <th>Grievance Scope & Details</th>
+                            <th>Related Context</th>
                             <th>Status</th>
-                            <th>HR Ruling & Authority Response</th>
+                            <th>HR Ruling & Notes</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for inv in investigations %}
-                            <tr>
-                                <td>
-                                    <strong>{{ inv.employee_name }}</strong><br>
-                                    <small style="color: var(--text-muted);">{{ inv.employee_code }} • {{ inv.department }}</small><br>
-                                    <small style="color: var(--text-muted);">Manager: {{ inv.manager_name or 'Direct' }}</small>
-                                </td>
-                                <td style="max-width: 250px;">
-                                    <strong>{{ inv.subject }}</strong><br>
-                                    <span class="badge badge-pending">{{ inv.issue_type }}</span>
-                                    <div style="margin-top: 4px; font-size: 0.85rem;">{{ inv.description }}</div>
-                                    {% if inv.evidence_details %}
-                                        <div style="margin-top: 4px; font-size: 0.8rem; color: var(--text-muted);">
-                                            <strong>Evidence:</strong> {{ inv.evidence_details }}
-                                        </div>
+                        <tr>
+                            <td>
+                                <strong style="font-family: monospace; color: #6366f1;">#GRV-{{ inv.investigation_id }}</strong>
+                                <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 2px;">{{ inv.created_at }}</div>
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; color: #1e293b;">{{ inv.employee_name }}</div>
+                                <div style="font-size: 0.78rem; color: #64748b;">{{ inv.employee_code }} • {{ inv.department }}</div>
+                                <div style="font-size: 0.75rem; color: #94a3b8;">Manager: {{ inv.manager_name or 'N/A' }}</div>
+                            </td>
+                            <td style="max-width: 280px;">
+                                <span class="badge" style="background: #f1f5f9; color: #475569; font-size: 0.75rem;">{{ inv.issue_type }}</span>
+                                <div style="font-weight: 600; color: #1e293b; margin-top: 4px;">{{ inv.subject }}</div>
+                                <div style="font-size: 0.82rem; color: #334155; margin-top: 2px; line-height: 1.4;">{{ inv.description }}</div>
+                                {% if inv.evidence_details %}
+                                <div style="font-size: 0.78rem; color: #64748b; margin-top: 4px;"><strong>Evidence:</strong> {{ inv.evidence_details }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div style="font-size: 0.82rem; color: #475569;">
+                                    <strong>Cycle:</strong> {{ inv.appraisal_period or 'General' }}<br>
+                                    {% if inv.appraisal_status %}
+                                    <span class="badge" style="background: #e0e7ff; color: #3730a3; margin-top: 3px;">{{ inv.appraisal_status }}</span>
                                     {% endif %}
-                                </td>
-                                <td>
-                                    <div style="font-size: 0.82rem;">
-                                        <strong>Cycle:</strong> {{ inv.appraisal_period or 'N/A' }}<br>
-                                        <strong>Appraisal Status:</strong> {{ inv.appraisal_status or 'N/A' }}<br>
-                                        {% if inv.appeal_reason %}
-                                            <strong>Appeal Reason:</strong> {{ inv.appeal_reason }}<br>
-                                            <strong>Appeal Status:</strong> {{ inv.appeal_status or 'N/A' }}
-                                        {% endif %}
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="badge badge-{{ inv.status|lower }}">
-                                        {{ inv.status|replace('_', ' ')|upper }}
-                                    </span>
-                                </td>
-                                <td>
-                                    {% if inv.authority_response %}
-                                        <div style="font-size: 0.88rem;">{{ inv.authority_response }}</div>
-                                        <small style="color: var(--text-muted);">Reviewed by: {{ inv.reviewer_name or 'HR Authority' }}</small>
-                                    {% else %}
-                                        <span style="color: var(--text-muted); font-size: 0.85rem;">Pending HR Investigation</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <button type="button" class="btn btn-primary btn-sm" onclick='openHRInvestigationModal({{ inv|tojson }})'>
-                                        Review & Rule
-                                    </button>
-                                </td>
-                            </tr>
+                                </div>
+                            </td>
+                            <td>
+                                {% if inv.status == 'OPEN' %}
+                                <span class="badge badge-warning"><span class="badge-dot dot-amber"></span> Open</span>
+                                {% elif inv.status == 'UNDER_INVESTIGATION' %}
+                                <span class="badge badge-info"><span class="badge-dot dot-cyan"></span> In Progress</span>
+                                {% elif inv.status in ['RESOLVED', 'RESOLVED_UPHELD', 'UPHELD'] %}
+                                <span class="badge badge-success"><span class="badge-dot dot-emerald"></span> Upheld</span>
+                                {% elif inv.status in ['CLOSED', 'REJECTED', 'RESOLVED_REJECTED'] %}
+                                <span class="badge badge-danger"><span class="badge-dot dot-rose"></span> Dismissed</span>
+                                {% else %}
+                                <span class="badge" style="background: #e2e8f0; color: #334155;">{{ inv.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td style="max-width: 220px;">
+                                {% if inv.authority_response %}
+                                <div style="font-size: 0.85rem; color: #1e293b; font-weight: 500;">{{ inv.authority_response }}</div>
+                                <div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">Reviewed: {{ inv.reviewer_name or 'HR Executive' }}</div>
+                                {% else %}
+                                <span class="text-muted" style="font-size: 0.8rem;">Pending investigation</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-primary" onclick='openHRInvModal({{ inv|tojson }})'>
+                                    <i class="fas fa-gavel mr-1"></i> Investigate / Rule
+                                </button>
+                            </td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-        {% else %}
-            <p style="color: var(--text-muted); text-align: center; padding: 20px 0;">No employee complaints or escalation grievances on record.</p>
-        {% endif %}
+            {% else %}
+            <div class="empty-state py-3">
+                <div class="empty-icon" style="background: #ecfdf5; color: #059669;">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h4 style="font-weight: 600; color: #1e293b; margin-top: 10px;">No Grievance Cases</h4>
+                <p class="text-muted" style="max-width: 420px; margin: 6px auto;">There are no employee complaints or investigation escalations currently on docket.</p>
+            </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 
-<!-- Modal: HR Investigation Review -->
-<div class="modal-overlay" id="hrInvModal">
-    <div class="modal-card">
-        <div class="modal-header">
-            <h3 class="modal-title">HR Investigation Review & Ruling</h3>
-            <button class="modal-close" onclick="closeModal('hrInvModal')">&times;</button>
+<!-- HR INVESTIGATION RESOLUTION MODAL -->
+<div id="hrInvModal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 1050; align-items: center; justify-content: center;">
+    <div class="card" style="width: 100%; max-width: 540px; margin: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+        <div class="card-header d-flex justify-between align-center">
+            <h3 class="card-title" style="font-size: 1.1rem; font-weight: 700; color: #1e293b;">
+                <i class="fas fa-balance-scale" style="color: #6366f1; margin-right: 8px;"></i>
+                HR Investigation Ruling
+            </h3>
+            <button type="button" onclick="closeHRInvModal()" class="btn-close" style="background: transparent; border: none; font-size: 1.25rem; cursor: pointer; color: #94a3b8;">&times;</button>
         </div>
         <form id="hrInvForm" onsubmit="handleHRInvestigationSubmit(event)">
             <input type="hidden" id="modalInvId">
-            <div class="modal-body">
-                <div style="margin-bottom: 12px; background-color: var(--bg-subtle); padding: 10px; border: 1px solid var(--border);">
-                    <div><strong>Employee:</strong> <span id="modalInvEmp"></span></div>
-                    <div><strong>Subject:</strong> <span id="modalInvSubject"></span></div>
-                    <div style="margin-top: 4px;"><strong>Complaint:</strong> <span id="modalInvDesc"></span></div>
+            <div class="card-body">
+                <div class="mb-1" style="background: #f8fafc; padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.8rem; color: #64748b;">Complainant: <strong id="modalInvEmp" style="color: #1e293b;"></strong></div>
+                    <div style="font-size: 0.9rem; font-weight: 600; color: #0f172a; margin-top: 4px;" id="modalInvSubject"></div>
+                    <div style="font-size: 0.82rem; color: #475569; margin-top: 4px;" id="modalInvDesc"></div>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="hrInvStatus">Investigation Status / Resolution Decision *</label>
+                <div class="form-group mb-1">
+                    <label class="form-label" for="hrInvStatus">Investigation Status / Resolution Decision <span class="text-danger">*</span></label>
                     <select id="hrInvStatus" name="status" class="form-control" required>
-                        <option value="UNDER_INVESTIGATION">UNDER_INVESTIGATION (In Progress)</option>
-                        <option value="RESOLVED_UPHELD">RESOLVED_UPHELD (Grievance Upheld / Remediation Required)</option>
-                        <option value="RESOLVED_REJECTED">RESOLVED_REJECTED (Grievance Dismissed / Review Upheld)</option>
+                        <option value="UNDER_INVESTIGATION">UNDER_INVESTIGATION - Inquiry Active & Witness Interviews</option>
+                        <option value="RESOLVED_UPHELD">RESOLVED_UPHELD - Grievance Validated / Corrective Action Required</option>
+                        <option value="RESOLVED_REJECTED">RESOLVED_REJECTED - Grievance Dismissed / Evaluation Affirmed</option>
+                        <option value="RESOLVED">RESOLVED - Amicable Resolution Reached</option>
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="hrInvResponse">Official HR Authority Ruling / Notes *</label>
-                    <textarea id="hrInvResponse" name="authority_response" class="form-control" rows="5" placeholder="Document the findings, investigation rationale, and official ruling..." required></textarea>
+                <div class="form-group mb-1">
+                    <label class="form-label" for="hrInvResponse">Official HR Authority Findings & Binding Decision <span class="text-danger">*</span></label>
+                    <textarea id="hrInvResponse" name="authority_response" class="form-control" rows="4" placeholder="Document the investigation findings, evidence reviewed, policy references, and mandated remediation..." required></textarea>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('hrInvModal')">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save HR Ruling</button>
+            <div class="card-footer d-flex justify-between align-center">
+                <button type="button" class="btn btn-secondary" onclick="closeHRInvModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Official Ruling</button>
             </div>
         </form>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_scripts %}
 <script>
-function openHRInvestigationModal(inv) {
+function openHRInvModal(inv) {
     document.getElementById("modalInvId").value = inv.investigation_id;
     document.getElementById("modalInvEmp").textContent = `${inv.employee_name} (${inv.employee_code || ''})`;
     document.getElementById("modalInvSubject").textContent = inv.subject;
     document.getElementById("modalInvDesc").textContent = inv.description;
     document.getElementById("hrInvStatus").value = inv.status.toUpperCase();
     document.getElementById("hrInvResponse").value = inv.authority_response || "";
-    openModal("hrInvModal");
+    document.getElementById("hrInvModal").style.display = "flex";
+}
+
+function closeHRInvModal() {
+    document.getElementById("hrInvModal").style.display = "none";
 }
 
 async function handleHRInvestigationSubmit(e) {
@@ -142,8 +180,8 @@ async function handleHRInvestigationSubmit(e) {
             authority_response
         });
         showToast(res.message || "HR ruling recorded.", "success");
-        closeModal("hrInvModal");
-        setTimeout(() => location.reload(), 1000);
+        closeHRInvModal();
+        setTimeout(() => location.reload(), 800);
     } catch (err) {
         showToast(err.message, "error");
     }

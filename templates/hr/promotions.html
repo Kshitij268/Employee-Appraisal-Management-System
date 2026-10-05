@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}Promotion Appeals & Elevations - EAMS HR{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div class="d-flex justify-between align-center flex-wrap gap-1">
+        <div>
+            <h1 class="page-title">Promotion Appeals & Role Elevations</h1>
+            <p class="page-subtitle">Review merit-qualified promotion appeals (&gt; 4.60 task score average), approve role elevations, and dispatch official credentials</p>
+        </div>
+        <div class="d-flex gap-1 align-center">
+            <span class="badge badge-info"><span class="badge-dot dot-cyan"></span> Total Appeals: {{ requests|length }}</span>
+            <span class="badge badge-warning"><span class="badge-dot dot-amber"></span> Pending Review: {{ requests|selectattr('status', 'equalto', 'SUBMITTED')|list|length }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="content-body">
+    <!-- PENDING PROMOTION APPEALS -->
+    <div class="card mb-2">
+        <div class="card-header d-flex justify-between align-center">
+            <div>
+                <h3 class="card-title" style="font-size: 1.15rem; font-weight: 700; color: #1e293b;">
+                    <i class="fas fa-award" style="color: #6366f1; margin-right: 8px;"></i>
+                    Incoming Promotion Appeals Queue
+                </h3>
+                <p class="text-muted" style="font-size: 0.85rem; margin-top: 4px;">Each appeal requires strict merit verification (&gt; 4.60 rating average across assigned tasks).</p>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if requests %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Appeal ID</th>
+                            <th>Candidate Details</th>
+                            <th>Task Average</th>
+                            <th>Justification & Supporting Docs</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in requests %}
+                        <tr>
+                            <td>
+                                <strong style="font-family: monospace; color: #6366f1;">#PRM-{{ r.request_id }}</strong>
+                                <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 2px;">{{ r.created_at }}</div>
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; color: #1e293b;">{{ r.employee_name }}</div>
+                                <div style="font-size: 0.78rem; color: #64748b;">{{ r.employee_code }} • {{ r.department }} ({{ r.designation }})</div>
+                                <div style="font-size: 0.75rem; color: #2563eb;">{{ r.employee_email }}</div>
+                            </td>
+                            <td>
+                                <div style="font-size: 1.25rem; font-weight: 800; color: {% if r.task_average and r.task_average > 4.60 %}#059669{% else %}#e11d48{% endif %};">
+                                    {{ "%.2f"|format(r.task_average) if r.task_average else "N/A" }}
+                                    <span style="font-size: 0.75rem; font-weight: normal; color: #94a3b8;">/ 5.00</span>
+                                </div>
+                                <span class="badge badge-success" style="font-size: 0.72rem; margin-top: 2px;">
+                                    <i class="fas fa-check-circle mr-1"></i> Qualified (&gt; 4.60)
+                                </span>
+                            </td>
+                            <td style="max-width: 300px;">
+                                <div style="font-size: 0.85rem; color: #334155; line-height: 1.4;">{{ r.reason }}</div>
+                                {% if r.document_reference %}
+                                <div style="margin-top: 6px; font-size: 0.78rem; color: #2563eb; word-break: break-all;">
+                                    <i class="fas fa-link mr-1"></i> {{ r.document_reference }}
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if r.status == 'APPROVED' %}
+                                <span class="badge badge-success"><span class="badge-dot dot-emerald"></span> Approved & Elevated</span>
+                                {% elif r.status == 'REJECTED' %}
+                                <span class="badge badge-danger"><span class="badge-dot dot-rose"></span> Rejected</span>
+                                {% else %}
+                                <span class="badge badge-warning"><span class="badge-dot dot-amber"></span> Awaiting HR Action</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if r.status == 'SUBMITTED' %}
+                                <div class="d-flex gap-1">
+                                    <button type="button" class="btn btn-sm btn-primary" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%);" onclick="openApproveModal({{ r.request_id }}, '{{ r.employee_name|escape }}', '{{ r.employee_email|escape }}', '{{ (r.task_average or 0.0)|round(2) }}')">
+                                        <i class="fas fa-check-circle mr-1"></i> Approve Promotion
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-secondary" onclick="openRejectModal({{ r.request_id }}, '{{ r.employee_name|escape }}')">
+                                        <i class="fas fa-times-circle mr-1"></i> Reject
+                                    </button>
+                                </div>
+                                {% else %}
+                                <div style="font-size: 0.82rem; color: #64748b;">
+                                    <strong>Completed</strong><br>
+                                    {{ r.hr_notes or 'No notes recorded' }}
+                                </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state py-3">
+                <div class="empty-icon" style="background: #ecfdf5; color: #059669;">
+                    <i class="fas fa-award"></i>
+                </div>
+                <h4 style="font-weight: 600; color: #1e293b; margin-top: 10px;">No Promotion Appeals in Queue</h4>
+                <p class="text-muted" style="max-width: 420px; margin: 6px auto;">When employees achieve &gt; 4.60 task score average and submit promotion appeals, they will appear here for executive approval.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- PROMOTIONS HISTORY -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title" style="font-size: 1.1rem; font-weight: 700; color: #1e293b;">
+                <i class="fas fa-history" style="color: #6366f1; margin-right: 8px;"></i>
+                Historical Corporate Elevations & Role Changes
+            </h3>
+        </div>
+        <div class="card-body p-0">
+            {% if history %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Promotion ID</th>
+                            <th>Employee</th>
+                            <th>Previous Role</th>
+                            <th>Promoted Role</th>
+                            <th>Task Avg</th>
+                            <th>Effective Date</th>
+                            <th>HR Decision Maker</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for h in history %}
+                        <tr>
+                            <td><strong style="font-family: monospace; color: #6366f1;">#PRM-{{ h.promotion_id }}</strong></td>
+                            <td>
+                                <strong>{{ h.employee_name }}</strong><br>
+                                <small style="color: #64748b;">{{ h.employee_code }} • {{ h.department }}</small>
+                            </td>
+                            <td>{{ h.previous_role|title }}</td>
+                            <td><strong style="color: #059669;">{{ h.new_role|title }}</strong></td>
+                            <td><strong>{{ "%.2f"|format(h.task_average) if h.task_average else "N/A" }}</strong></td>
+                            <td>{{ h.effective_date }}</td>
+                            <td>{{ h.approver_name or 'HR Executive' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state py-3">
+                <p class="text-muted">No historical corporate elevations recorded yet.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- APPROVE PROMOTION MODAL -->
+<div id="approveModal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 1050; align-items: center; justify-content: center;">
+    <div class="card" style="width: 100%; max-width: 520px; margin: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+        <div class="card-header d-flex justify-between align-center">
+            <h3 class="card-title" style="font-size: 1.1rem; font-weight: 700; color: #065f46;">
+                <i class="fas fa-check-circle" style="color: #059669; margin-right: 8px;"></i>
+                Approve & Elevate Employee
+            </h3>
+            <button type="button" onclick="closeApproveModal()" class="btn-close" style="background: transparent; border: none; font-size: 1.25rem; cursor: pointer; color: #94a3b8;">&times;</button>
+        </div>
+        <form id="approveForm" method="POST">
+            <div class="card-body">
+                <div class="mb-1" style="background: #ecfdf5; border: 1px solid #a7f3d0; padding: 14px; border-radius: 8px;">
+                    <div style="font-size: 0.85rem; color: #065f46;">Candidate: <strong id="approve_emp_name"></strong></div>
+                    <div style="font-size: 0.8rem; color: #047857;">Email: <span id="approve_emp_email"></span></div>
+                    <div style="font-size: 0.8rem; color: #047857; margin-top: 4px;">Task Score Average: <strong id="approve_task_avg"></strong> / 5.00</div>
+                </div>
+
+                <div class="form-group mb-1">
+                    <label class="form-label" for="new_role">Promoted Role <span class="text-danger">*</span></label>
+                    <select id="new_role" name="new_role" class="form-control" required>
+                        <option value="manager" selected>Manager (Team Leadership & Evaluation Authority)</option>
+                    </select>
+                </div>
+
+                <div class="form-group mb-1">
+                    <label class="form-label" for="new_designation">New Official Designation</label>
+                    <input type="text" id="new_designation" name="new_designation" class="form-control" placeholder="e.g. Engineering Manager / Team Lead">
+                </div>
+
+                <div class="form-group mb-1">
+                    <label class="form-label" for="hr_comments">HR Approval Notes & Instructions</label>
+                    <textarea id="hr_comments" name="hr_comments" class="form-control" rows="2" placeholder="Corporate endorsement notes..."></textarea>
+                </div>
+
+                <div style="background: #f8fafc; padding: 12px; border-radius: 8px; font-size: 0.8rem; color: #475569;">
+                    <i class="fas fa-shield-alt" style="color: #6366f1;"></i> <strong>Security Automation:</strong><br>
+                    Upon clicking Confirm Promotion:
+                    <ul style="margin: 4px 0 0 16px; padding: 0;">
+                        <li>User role will be updated to <strong>Manager</strong>.</li>
+                        <li>A secure <strong>temporary password</strong> will be generated.</li>
+                        <li>An official congratulatory email will be sent to their Gmail.</li>
+                        <li>The user will be required to change password on first login.</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-between align-center">
+                <button type="button" onclick="closeApproveModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%);">
+                    <i class="fas fa-award mr-1"></i> Confirm & Execute Promotion
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- REJECT PROMOTION MODAL -->
+<div id="rejectModal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 1050; align-items: center; justify-content: center;">
+    <div class="card" style="width: 100%; max-width: 480px; margin: 20px;">
+        <div class="card-header d-flex justify-between align-center">
+            <h3 class="card-title" style="font-size: 1.1rem; font-weight: 700; color: #991b1b;">
+                <i class="fas fa-times-circle" style="color: #e11d48; margin-right: 8px;"></i>
+                Reject Promotion Appeal
+            </h3>
+            <button type="button" onclick="closeRejectModal()" style="background: transparent; border: none; font-size: 1.25rem; cursor: pointer; color: #94a3b8;">&times;</button>
+        </div>
+        <form id="rejectForm" method="POST">
+            <div class="card-body">
+                <div class="mb-1" style="font-size: 0.85rem; color: #64748b;">
+                    Rejecting appeal for: <strong id="reject_emp_name" style="color: #1e293b;"></strong>
+                </div>
+                <div class="form-group mb-1">
+                    <label class="form-label" for="reject_reason">Reason / Feedback for Rejection <span class="text-danger">*</span></label>
+                    <textarea id="reject_reason" name="reason" class="form-control" rows="3" placeholder="Explain the rationale: pending reviews, prerequisite certifications, or headcount constraints..." required></textarea>
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-between align-center">
+                <button type="button" onclick="closeRejectModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openApproveModal(requestId, empName, empEmail, taskAvg) {
+    document.getElementById('approveForm').action = '/hr/promotions/' + requestId + '/approve';
+    document.getElementById('approve_emp_name').textContent = empName;
+    document.getElementById('approve_emp_email').textContent = empEmail;
+    document.getElementById('approve_task_avg').textContent = Number(taskAvg).toFixed(2);
+    document.getElementById('approveModal').style.display = 'flex';
+}
+
+function closeApproveModal() {
+    document.getElementById('approveModal').style.display = 'none';
+}
+
+function openRejectModal(requestId, empName) {
+    document.getElementById('rejectForm').action = '/hr/promotions/' + requestId + '/reject';
+    document.getElementById('reject_emp_name').textContent = empName;
+    document.getElementById('rejectModal').style.display = 'flex';
+}
+
+function closeRejectModal() {
+    document.getElementById('rejectModal').style.display = 'none';
+}
+</script>
+{% endblock %}

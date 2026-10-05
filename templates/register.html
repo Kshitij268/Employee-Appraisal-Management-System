@@ -3,97 +3,155 @@
 {% block title %}Register | Employee Appraisal Management System{% endblock %}
 
 {% block auth_content %}
-<div class="auth-page-wrapper">
-    <div class="auth-card" style="max-width: 520px;">
-        <div class="auth-header">
-            <h1 class="auth-title">Create Account</h1>
-            <p class="auth-subtitle">Register a new Employee or Manager account in EAMS</p>
-        </div>
+<div class="login-container">
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">
-                        <span>{{ message }}</span>
-                        <button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:inherit;">&times;</button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <form method="POST" action="{{ url_for('register') }}">
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label" for="regName">Full Name *</label>
-                    <input type="text" id="regName" name="name" class="form-control" placeholder="John Doe" required autofocus>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="regEmail">Work Email *</label>
-                    <input type="email" id="regEmail" name="email" class="form-control" placeholder="john.doe@example.com" required>
-                </div>
+    <!-- LEFT PANEL — Same office photograph (visual identity) -->
+    <div class="login-left">
+        <img
+            class="login-left-img"
+            src="{{ url_for('static', filename='images/eams-office.jpg') }}"
+            alt="EAMS Office"
+        >
+        <div class="login-left-overlay"></div>
+        <div class="login-left-content">
+            <!-- Badge -->
+            <div class="login-left-badge">
+                <span class="login-left-badge-text">EAMS</span>
+                <span class="login-left-badge-sub">Account Registration</span>
             </div>
 
-            <div class="form-group">
-                <label class="form-label" for="regRole">Role *</label>
-                <select id="regRole" name="role" class="form-control" required>
-                    <option value="employee" selected>Employee</option>
-                    <option value="manager">Manager</option>
-                </select>
-            </div>
+            <!-- Headline -->
+            <h2 class="login-left-headline">Join the<br>Appraisal<br>System.</h2>
+            <div class="login-left-divider"></div>
+            <p class="login-left-tagline">Register your profile to access structured performance reviews, self-appraisals, and direct feedback.</p>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label" for="regPassword">Password *</label>
-                    <input type="password" id="regPassword" name="password" class="form-control" placeholder="Min. 8 characters" required minlength="8">
-                    <div class="password-strength-box">
-                        <span id="regStrengthLabel" class="strength-label"></span>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="regConfirmPassword">Confirm Password *</label>
-                    <input type="password" id="regConfirmPassword" name="confirm_password" class="form-control" placeholder="Confirm password" required minlength="8">
-                </div>
+            <!-- Footer keywords -->
+            <div class="login-left-footer">
+                <span class="login-left-footer-item">Employees</span>
+                <span class="login-left-footer-sep">|</span>
+                <span class="login-left-footer-item">Performance</span>
+                <span class="login-left-footer-sep">|</span>
+                <span class="login-left-footer-item">Growth</span>
+                <span class="login-left-footer-sep">|</span>
+                <span class="login-left-footer-item">Success</span>
             </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label" for="regAge">Age</label>
-                    <input type="number" id="regAge" name="age" class="form-control" placeholder="e.g. 28" min="16" max="100">
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="regPhone">Phone Number</label>
-                    <input type="text" id="regPhone" name="phone" class="form-control" placeholder="+1 (555) 000-0000">
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label" for="regDepartment">Department</label>
-                    <input type="text" id="regDepartment" name="department" class="form-control" placeholder="e.g. Engineering" value="Engineering">
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="regLocation">Location / Office</label>
-                    <input type="text" id="regLocation" name="location" class="form-control" placeholder="e.g. New York Headquarters">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label" for="regAddress">Residential Address</label>
-                <textarea id="regAddress" name="address" class="form-control" rows="2" placeholder="Street, City, State, ZIP"></textarea>
-            </div>
-
-            <div style="margin-top: 16px;">
-                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 8px;">
-                    Create Account
-                </button>
-            </div>
-        </form>
-
-        <div style="margin-top: 16px; text-align: center; font-size: 0.85rem; color: var(--text-muted);">
-            Already have an account? <a href="{{ url_for('login') }}">Sign in here</a>
         </div>
     </div>
-</div>
+
+    <!-- RIGHT PANEL — Registration form-->
+    <div class="login-right" style="align-items: flex-start; padding-top: 48px; padding-bottom: 48px;">
+        <div class="login-form-wrapper" style="max-width: 460px;">
+
+            <!-- EAMS Brand -->
+            <div class="login-brand-block">
+                <p class="login-brand-title">EAMS</p>
+                <p class="login-brand-sub">Employee Appraisal<br>Management System</p>
+                <div class="login-brand-rule"></div>
+            </div>
+
+            <!-- Heading -->
+            <div class="login-header">
+                <h1 class="login-title">Create Account</h1>
+                <p class="login-subtitle">Fill in your details to set up your operational account</p>
+            </div>
+
+            <!-- Flash messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            <span>{{ message }}</span>
+                            <button onclick="this.parentElement.remove()" style="background:none; border:none; cursor:pointer; font-size:1.1rem; color:inherit;">&times;</button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Registration form — all fields and action preserved exactly -->
+            <form method="POST" action="{{ url_for('register') }}" class="login-form">
+
+                <!-- Row 1: Full Name + Gmail -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="regName">Full Name *</label>
+                        <input type="text" id="regName" name="name" class="form-control" placeholder="John Doe" required autofocus>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="regEmail">Gmail Address *</label>
+                        <input type="email" id="regEmail" name="email" class="form-control" placeholder="john.doe@gmail.com" required>
+                    </div>
+                </div>
+
+                <!-- Role -->
+                <div class="form-group">
+                    <label class="form-label" for="regRole">Role *</label>
+                    <select id="regRole" name="role" class="form-control" required>
+                        <option value="employee" selected>Employee</option>
+                        <option value="manager">Manager</option>
+                    </select>
+                </div>
+
+                <!-- Row 2: Password + Confirm -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="regPassword">Password *</label>
+                        <input type="password" id="regPassword" name="password" class="form-control" placeholder="Min. 8 characters" required minlength="8">
+                        <div class="password-strength-box">
+                            <span id="regStrengthLabel" class="strength-label"></span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="regConfirmPassword">Confirm Password *</label>
+                        <input type="password" id="regConfirmPassword" name="confirm_password" class="form-control" placeholder="Confirm password" required minlength="8">
+                    </div>
+                </div>
+
+                <!-- Row 3: Age + Phone -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="regAge">Age (21+) *</label>
+                        <input type="number" id="regAge" name="age" class="form-control" placeholder="e.g. 28" min="21" max="100" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="regPhone">Phone Number</label>
+                        <input type="text" id="regPhone" name="phone" class="form-control" placeholder="+1 (555) 000-0000">
+                    </div>
+                </div>
+
+                <!-- Row 4: Department + Location -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="regDepartment">Department</label>
+                        <input type="text" id="regDepartment" name="department" class="form-control" placeholder="e.g. Engineering" value="Engineering">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="regLocation">Location / Office</label>
+                        <input type="text" id="regLocation" name="location" class="form-control" placeholder="e.g. New York HQ">
+                    </div>
+                </div>
+
+                <!-- Residential Address -->
+                <div class="form-group">
+                    <label class="form-label" for="regAddress">Residential Address</label>
+                    <textarea id="regAddress" name="address" class="form-control" rows="2" placeholder="Street, City, State, ZIP"></textarea>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button type="submit" class="btn login-btn">Create Account</button>
+                </div>
+
+            </form>
+
+            <!-- Back to login -->
+            <div class="login-footer" style="margin-top: 20px;">
+                <span>Already have an account?</span>
+                <a href="{{ url_for('login') }}" class="login-link">Sign in here</a>
+            </div>
+
+        </div><!-- /.login-form-wrapper -->
+    </div><!-- /.login-right -->
+
+</div><!-- /.login-container -->
 {% endblock %}
 
 {% block extra_scripts %}

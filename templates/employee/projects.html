@@ -1,21 +1,162 @@
 {% extends "base.html" %}
 
-{% block title %}My Projects | EAMS{% endblock %}
-{% block page_title %}Projects & Deliverables{% endblock %}
+{% block title %}Projects & Tasks - EAMS{% endblock %}
 
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        <h2 class="card-title">Project Deliverables & Milestones ({{ projects|length }})</h2>
-        <button class="btn btn-primary" onclick="openCreateProjectModal()">+ Add New Project</button>
+<div class="content-header">
+    <div class="d-flex justify-between align-center flex-wrap gap-1">
+        <div>
+            <h1 class="page-title">Projects & Assigned Tasks</h1>
+            <p class="page-subtitle">Track project deliverables, submit task completion status with reasons, and monitor performance ratings</p>
+        </div>
+        <div class="d-flex gap-1 align-center">
+            <button class="btn btn-primary" onclick="openCreateProjectModal()">
+                <i class="fas fa-plus mr-1"></i> Add Project
+            </button>
+        </div>
     </div>
-    <div class="card-body">
-        {% if projects %}
+</div>
+
+<div class="content-body">
+    <!-- PERFORMANCE BENCHMARK BANNER -->
+    <div class="card mb-2" style="background: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%);">
+        <div class="card-body py-1">
+            <div class="d-flex justify-between align-center flex-wrap gap-1">
+                <div class="d-flex align-center gap-2">
+                    <div>
+                        <span style="font-size: 0.8rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Current Task Score Average</span>
+                        <div style="font-size: 1.8rem; font-weight: 800; color: {% if task_avg > 4.60 %}#059669{% else %}#4f46e5{% endif %};">
+                            {{ "%.2f"|format(task_avg) }} <span style="font-size: 0.9rem; font-weight: normal; color: #64748b;">/ 5.00</span>
+                        </div>
+                    </div>
+                    <div style="border-left: 1px solid #cbd5e1; height: 40px; margin: 0 10px;"></div>
+                    <div>
+                        <span style="font-size: 0.8rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Promotion Benchmark</span>
+                        <div style="font-size: 1.1rem; font-weight: 700; color: #059669;">&gt; 4.60 Required</div>
+                    </div>
+                </div>
+                <div>
+                    <a href="{{ url_for('employee_promotions') }}" class="btn btn-sm btn-secondary">
+                        <i class="fas fa-award mr-1"></i> Check Promotion Appeal Eligibility
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ASSIGNED TASKS & STATUS EXECUTION (Requirement 2) -->
+    <div class="card mb-2">
+        <div class="card-header d-flex justify-between align-center">
+            <div>
+                <h3 class="card-title" style="font-size: 1.15rem; font-weight: 700; color: #1e293b;">
+                    <i class="fas fa-tasks" style="color: #6366f1; margin-right: 8px;"></i>
+                    Assigned Project Tasks Execution
+                </h3>
+                <p class="text-muted" style="font-size: 0.85rem; margin-top: 4px;">Update completion status for assigned tasks. Provide deliverables or specific reasons if failed/blocked.</p>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if tasks %}
             <div class="table-responsive">
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>Project Title & Scope</th>
+                            <th>Task Details</th>
+                            <th>Project</th>
+                            <th>Due Date</th>
+                            <th>Execution Status</th>
+                            <th>Employee Deliverable / Reason</th>
+                            <th>Manager Score</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in tasks %}
+                        <tr>
+                            <td>
+                                <strong style="font-family: monospace; color: #6366f1;">#TSK-{{ t.task_id }}</strong>
+                                <div style="font-weight: 600; color: #1e293b;">{{ t.title }}</div>
+                                <div style="font-size: 0.8rem; color: #64748b;">{{ t.description or 'No scope details' }}</div>
+                            </td>
+                            <td>
+                                <span class="badge" style="background: #e2e8f0; color: #334155;">{{ t.project_name }}</span>
+                            </td>
+                            <td>
+                                <div style="font-size: 0.82rem; color: #475569;">{{ t.due_date if t.due_date else 'No deadline' }}</div>
+                            </td>
+                            <td>
+                                {% if t.status == 'COMPLETED' %}
+                                <span class="badge badge-success"><span class="badge-dot dot-emerald"></span> COMPLETED</span>
+                                {% elif t.status == 'FAILED' %}
+                                <span class="badge badge-danger"><span class="badge-dot dot-rose"></span> FAILED</span>
+                                {% elif t.status == 'BLOCKED' %}
+                                <span class="badge badge-warning"><span class="badge-dot dot-amber"></span> BLOCKED</span>
+                                {% elif t.status == 'IN_PROGRESS' %}
+                                <span class="badge badge-info"><span class="badge-dot dot-cyan"></span> IN PROGRESS</span>
+                                {% else %}
+                                <span class="badge" style="background: #f1f5f9; color: #64748b;">{{ t.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td style="max-width: 250px;">
+                                {% if t.employee_result %}
+                                <div style="font-size: 0.82rem; color: #065f46;"><strong>Deliverable:</strong> {{ t.employee_result }}</div>
+                                {% endif %}
+                                {% if t.employee_reason %}
+                                <div style="font-size: 0.82rem; color: #991b1b; margin-top: 2px;"><strong>Reason:</strong> {{ t.employee_reason }}</div>
+                                {% endif %}
+                                {% if not t.employee_result and not t.employee_reason %}
+                                <span class="text-muted" style="font-size: 0.8rem;">No update submitted yet</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if t.manager_rating is not none %}
+                                <div style="font-size: 1.1rem; font-weight: 700; color: {% if t.manager_rating >= 4.5 %}#059669{% elif t.manager_rating >= 3.5 %}#6366f1{% else %}#e11d48{% endif %};">
+                                    {{ "%.2f"|format(t.manager_rating) }} / 5.00
+                                </div>
+                                {% if t.manager_comments %}
+                                <div style="font-size: 0.75rem; color: #64748b; font-style: italic;">"{{ t.manager_comments }}"</div>
+                                {% endif %}
+                                {% else %}
+                                <span class="badge" style="background: #f8fafc; color: #94a3b8;">Pending Score</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-primary" onclick="openSubmitTaskModal({{ t.task_id }}, '{{ t.title|escape }}', '{{ t.status }}', '{{ (t.employee_result or '')|escape }}', '{{ (t.employee_reason or '')|escape }}')">
+                                    <i class="fas fa-edit mr-1"></i> Update Status
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state py-3">
+                <div class="empty-icon" style="background: #f1f5f9; color: #64748b;">
+                    <i class="fas fa-check-double"></i>
+                </div>
+                <h4 style="font-weight: 600; color: #1e293b; margin-top: 10px;">No Tasks Assigned Yet</h4>
+                <p class="text-muted" style="max-width: 420px; margin: 6px auto;">Tasks assigned by management will appear here for execution and scoring.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- PROJECT DELIVERABLES -->
+    <div class="card">
+        <div class="card-header d-flex justify-between align-center">
+            <h3 class="card-title" style="font-size: 1.1rem; font-weight: 700; color: #1e293b;">
+                <i class="fas fa-project-diagram" style="color: #6366f1; margin-right: 8px;"></i>
+                Registered Projects ({{ projects|length }})
+            </h3>
+        </div>
+        <div class="card-body p-0">
+            {% if projects %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Project Scope</th>
                             <th>Category</th>
                             <th>Milestones</th>
                             <th>Progress</th>
@@ -29,8 +170,8 @@
                         {% for project in projects %}
                         <tr>
                             <td>
-                                <strong>{{ project.name }}</strong><br>
-                                <small style="color: var(--text-muted);">{{ project.description or 'No scope details provided.' }}</small>
+                                <strong>{{ project.name }}</strong>
+                                <div style="font-size: 0.8rem; color: #64748b;">{{ project.description or 'No scope details' }}</div>
                             </td>
                             <td>{{ project.category or 'General' }}</td>
                             <td>
@@ -39,9 +180,9 @@
                             <td>
                                 <strong>{{ project.progress }}%</strong>
                             </td>
-                            <td><span class="badge badge-under_review">{{ project.priority }}</span></td>
-                            <td>{{ project.due_date.strftime('%Y-%m-%d') if project.due_date else 'N/A' }}</td>
-                            <td><span class="badge badge-{{ project.status|lower }}">{{ project.status|replace('_', ' ')|upper }}</span></td>
+                            <td><span class="badge" style="background: #fef3c7; color: #92400e;">{{ project.priority }}</span></td>
+                            <td>{{ project.due_date if project.due_date else 'N/A' }}</td>
+                            <td><span class="badge" style="background: #e0e7ff; color: #3730a3;">{{ project.status|upper }}</span></td>
                             <td>
                                 <div style="display: flex; gap: 4px;">
                                     <button class="btn btn-secondary btn-sm" onclick='openEditProjectModal({{ project|tojson }})'>Edit</button>
@@ -53,28 +194,77 @@
                     </tbody>
                 </table>
             </div>
-        {% else %}
-            <p style="color: var(--text-muted); text-align: center; padding: 20px 0;">No projects currently assigned or registered. Click "+ Add New Project" to record deliverables.</p>
-        {% endif %}
+            {% else %}
+            <div class="empty-state py-3">
+                <p class="text-muted">No projects registered. Click "+ Add Project" to record your deliverables.</p>
+            </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 
-<!-- Create / Edit Project Modal -->
-<div class="modal-overlay" id="projectModal">
-    <div class="modal-card">
-        <div class="modal-header">
-            <h3 class="modal-title" id="projectModalTitle">Add New Project</h3>
-            <button class="modal-close" onclick="closeModal('projectModal')">&times;</button>
+<!-- SUBMIT TASK STATUS MODAL (Requirement 2) -->
+<div id="taskStatusModal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 1050; align-items: center; justify-content: center;">
+    <div class="card" style="width: 100%; max-width: 520px; margin: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+        <div class="card-header d-flex justify-between align-center">
+            <h3 class="card-title" style="font-size: 1.1rem; font-weight: 700; color: #1e293b;">
+                <i class="fas fa-check-circle" style="color: #059669; margin-right: 8px;"></i>
+                Update Task Completion Status
+            </h3>
+            <button type="button" onclick="closeSubmitTaskModal()" class="btn-close" style="background: transparent; border: none; font-size: 1.25rem; cursor: pointer; color: #94a3b8;">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('employee_submit_task') }}">
+            <div class="card-body">
+                <input type="hidden" id="modal_task_id" name="task_id">
+                
+                <div class="mb-1" style="background: #f8fafc; padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.8rem; color: #64748b;">Task Title:</div>
+                    <div style="font-size: 0.95rem; font-weight: 600; color: #0f172a;" id="modal_task_title"></div>
+                </div>
+
+                <div class="form-group mb-1">
+                    <label class="form-label" for="modal_task_status">Task Status <span class="text-danger">*</span></label>
+                    <select id="modal_task_status" name="status" class="form-control" onchange="toggleReasonField()" required>
+                        <option value="COMPLETED">COMPLETED - Task Done Successfully</option>
+                        <option value="FAILED">FAILED - Task Could Not Succeed</option>
+                        <option value="BLOCKED">BLOCKED / UNFEASIBLE - External Blocker / Impossible</option>
+                        <option value="IN_PROGRESS">IN PROGRESS - Currently Working</option>
+                    </select>
+                </div>
+
+                <div class="form-group mb-1" id="deliverableGroup">
+                    <label class="form-label" for="modal_task_result">Deliverable Notes / Outcome</label>
+                    <textarea id="modal_task_result" name="employee_result" class="form-control" rows="2" placeholder="Summary of what was delivered, links to PRs or release notes..."></textarea>
+                </div>
+
+                <div class="form-group mb-1" id="reasonGroup">
+                    <label class="form-label" for="modal_task_reason">Reason for Failure / Unfeasibility / Blocker <span id="reasonReq" class="text-danger" style="display: none;">*</span></label>
+                    <textarea id="modal_task_reason" name="employee_reason" class="form-control" rows="2" placeholder="Detail root cause: missing dependencies, API outages, changed requirements, or technical unfeasibility..."></textarea>
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-between align-center">
+                <button type="button" onclick="closeSubmitTaskModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Task Update</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Project Create/Edit Modal -->
+<div id="projectModal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 1050; align-items: center; justify-content: center;">
+    <div class="card" style="width: 100%; max-width: 550px; margin: 20px;">
+        <div class="card-header d-flex justify-between align-center">
+            <h3 class="card-title" id="projectModalTitle" style="font-size: 1.1rem; font-weight: 700; color: #1e293b;">Add Project</h3>
+            <button type="button" onclick="closeModal('projectModal')" style="background: transparent; border: none; font-size: 1.25rem; cursor: pointer; color: #94a3b8;">&times;</button>
         </div>
         <form id="projectForm" onsubmit="handleProjectFormSubmit(event)">
             <input type="hidden" id="project_id" name="project_id">
-            <div class="modal-body">
-                <div class="form-group">
+            <div class="card-body">
+                <div class="form-group mb-1">
                     <label class="form-label" for="project_name">Project Title *</label>
-                    <input type="text" id="project_name" name="name" class="form-control" placeholder="e.g. NextGen Microservices Refactor" required>
+                    <input type="text" id="project_name" name="name" class="form-control" required>
                 </div>
-
-                <div class="form-row">
+                <div class="grid grid-2 mb-1">
                     <div class="form-group">
                         <label class="form-label" for="project_category">Category</label>
                         <select id="project_category" name="category" class="form-control">
@@ -82,7 +272,6 @@
                             <option value="UI/UX Design">UI/UX Design</option>
                             <option value="Infrastructure">Infrastructure</option>
                             <option value="Database Performance">Database Performance</option>
-                            <option value="Compliance & Security">Compliance & Security</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -95,8 +284,7 @@
                         </select>
                     </div>
                 </div>
-
-                <div class="form-row">
+                <div class="grid grid-2 mb-1">
                     <div class="form-group">
                         <label class="form-label" for="milestones_completed">Completed Milestones</label>
                         <input type="number" id="milestones_completed" name="milestones_completed" min="0" class="form-control" value="0" required>
@@ -106,10 +294,9 @@
                         <input type="number" id="milestones_total" name="milestones_total" min="0" class="form-control" value="0" required>
                     </div>
                 </div>
-
-                <div class="form-row">
+                <div class="grid grid-2 mb-1">
                     <div class="form-group">
-                        <label class="form-label" for="project_progress">Progress (%) (0 - 100)</label>
+                        <label class="form-label" for="project_progress">Progress (%)</label>
                         <input type="number" id="project_progress" name="progress" min="0" max="100" class="form-control" value="0" required>
                     </div>
                     <div class="form-group">
@@ -121,18 +308,16 @@
                         </select>
                     </div>
                 </div>
-
-                <div class="form-group">
+                <div class="form-group mb-1">
                     <label class="form-label" for="project_due_date">Delivery Date</label>
                     <input type="date" id="project_due_date" name="due_date" class="form-control">
                 </div>
-
                 <div class="form-group">
                     <label class="form-label" for="project_description">Description & Scope</label>
-                    <textarea id="project_description" name="description" class="form-control" rows="3" placeholder="Core architecture details, key stakeholder impact, and technical delivery notes..."></textarea>
+                    <textarea id="project_description" name="description" class="form-control" rows="2"></textarea>
                 </div>
             </div>
-            <div class="modal-footer">
+            <div class="card-footer d-flex justify-between align-center">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('projectModal')">Cancel</button>
                 <button type="submit" class="btn btn-primary" id="projectSubmitBtn">Save Project</button>
             </div>
@@ -143,6 +328,38 @@
 
 {% block extra_scripts %}
 <script>
+function openSubmitTaskModal(taskId, title, status, result, reason) {
+    document.getElementById('modal_task_id').value = taskId;
+    document.getElementById('modal_task_title').textContent = title;
+    document.getElementById('modal_task_status').value = status || 'COMPLETED';
+    document.getElementById('modal_task_result').value = result || '';
+    document.getElementById('modal_task_reason').value = reason || '';
+    toggleReasonField();
+    document.getElementById('taskStatusModal').style.display = 'flex';
+}
+
+function closeSubmitTaskModal() {
+    document.getElementById('taskStatusModal').style.display = 'none';
+}
+
+function toggleReasonField() {
+    const status = document.getElementById('modal_task_status').value;
+    const reqSpan = document.getElementById('reasonReq');
+    if (status === 'FAILED' || status === 'BLOCKED') {
+        reqSpan.style.display = 'inline';
+    } else {
+        reqSpan.style.display = 'none';
+    }
+}
+
+function openModal(id) {
+    document.getElementById(id).style.display = 'flex';
+}
+
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+
 let isProjectEditMode = false;
 
 function openCreateProjectModal() {
@@ -151,9 +368,6 @@ function openCreateProjectModal() {
     document.getElementById("projectSubmitBtn").textContent = "Create Project";
     document.getElementById("projectForm").reset();
     document.getElementById("project_id").value = "";
-    document.getElementById("milestones_completed").value = 0;
-    document.getElementById("milestones_total").value = 0;
-    document.getElementById("project_progress").value = 0;
     openModal("projectModal");
 }
 
@@ -177,26 +391,13 @@ function openEditProjectModal(project) {
 async function handleProjectFormSubmit(e) {
     e.preventDefault();
     const projectId = document.getElementById("project_id").value;
-    const completed = parseInt(document.getElementById("milestones_completed").value) || 0;
-    const total = parseInt(document.getElementById("milestones_total").value) || 0;
-    const progress = parseInt(document.getElementById("project_progress").value) || 0;
-
-    if (completed > total) {
-        showToast("Completed milestones cannot exceed total milestones", "error");
-        return;
-    }
-    if (progress < 0 || progress > 100) {
-        showToast("Progress must be between 0 and 100", "error");
-        return;
-    }
-
     const data = {
         name: document.getElementById("project_name").value.trim(),
         category: document.getElementById("project_category").value,
         priority: document.getElementById("project_priority").value,
-        milestones_completed: completed,
-        milestones_total: total,
-        progress: progress,
+        milestones_completed: parseInt(document.getElementById("milestones_completed").value) || 0,
+        milestones_total: parseInt(document.getElementById("milestones_total").value) || 0,
+        progress: parseInt(document.getElementById("project_progress").value) || 0,
         status: document.getElementById("project_status").value,
         due_date: document.getElementById("project_due_date").value || null,
         description: document.getElementById("project_description").value.trim()
@@ -218,7 +419,7 @@ async function handleProjectFormSubmit(e) {
 }
 
 async function handleDeleteProject(projectId) {
-    if (!confirm("Are you sure you want to delete this project deliverable?")) return;
+    if (!confirm("Are you sure you want to delete this project?")) return;
     try {
         const res = await apiRequest(`/api/projects/${projectId}`, "DELETE");
         showToast(res.message || "Project deleted.", "success");

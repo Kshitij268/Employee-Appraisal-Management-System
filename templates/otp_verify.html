@@ -21,7 +21,7 @@
             {% endif %}
         {% endwith %}
 
-        <form method="POST" action="{{ verify_url or url_for('register_otp_verify') }}">
+        <form method="POST" action="{{ verify_url or url_for('otp_verify') }}">
             <div class="form-group">
                 <label class="form-label" for="otpCode">4-Digit Verification Code</label>
                 <input type="text" id="otpCode" name="otp_code" maxlength="4" pattern="\d{4}" class="form-control" placeholder="1234" required autofocus style="text-align:center; font-size:1.4rem; letter-spacing:8px; font-weight:bold;">
@@ -36,7 +36,7 @@
         </form>
 
         <div style="margin-top: 16px; display:flex; justify-content:space-between; font-size:0.85rem;">
-            <a href="{{ resend_url or url_for('resend_register_otp') }}" style="color:var(--primary);">Resend Code</a>
+            <a href="{{ resend_url or url_for('resend_otp') }}" style="color:var(--primary);">Resend Code</a>
             <a href="{{ url_for('register') }}" style="color:var(--text-muted);">Back to Sign Up</a>
         </div>
     </div>

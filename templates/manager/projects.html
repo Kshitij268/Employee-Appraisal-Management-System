@@ -1,15 +1,129 @@
 {% extends "base.html" %}
 
-{% block title %}Team Projects | EAMS{% endblock %}
-{% block page_title %}Team Project Deliverables{% endblock %}
+{% block title %}Team Projects & Task Scoring - EAMS Manager{% endblock %}
 
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        <h2 class="card-title">Direct Reports Deliverables & Status ({{ projects|length }})</h2>
+<div class="content-header">
+    <div class="d-flex justify-between align-center flex-wrap gap-1">
+        <div>
+            <h1 class="page-title">Team Projects & Task Evaluations</h1>
+            <p class="page-subtitle">Track project progress, evaluate employee task deliverables (1.0 - 5.0 rating), and provide performance feedback</p>
+        </div>
+        <div class="d-flex gap-1 align-center">
+            <span class="badge badge-info"><span class="badge-dot dot-cyan"></span> Total Tasks: {{ tasks|length }}</span>
+            <span class="badge badge-success"><span class="badge-dot dot-emerald"></span> Scored: {{ tasks|selectattr('manager_rating')|list|length }}</span>
+        </div>
     </div>
-    <div class="card-body">
-        {% if projects %}
+</div>
+
+<div class="content-body">
+    <!-- TASK EVALUATION QUEUE (Requirement 10) -->
+    <div class="card mb-2">
+        <div class="card-header d-flex justify-between align-center">
+            <div>
+                <h3 class="card-title" style="font-size: 1.15rem; font-weight: 700; color: #1e293b;">
+                    <i class="fas fa-star" style="color: #f59e0b; margin-right: 8px;"></i>
+                    Team Tasks Evaluation & Scoring Queue
+                </h3>
+                <p class="text-muted" style="font-size: 0.85rem; margin-top: 4px;">Rate completed/assigned tasks out of 5.00. High scoring averages (&gt; 4.60) enable employees to qualify for promotion appeals.</p>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if tasks %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Task ID & Details</th>
+                            <th>Employee</th>
+                            <th>Project</th>
+                            <th>Status & Reason</th>
+                            <th>Current Score / 5.0</th>
+                            <th>Manager Feedback</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in tasks %}
+                        <tr>
+                            <td>
+                                <strong style="font-family: monospace; color: #6366f1;">#TSK-{{ t.task_id }}</strong>
+                                <div style="font-weight: 600; color: #1e293b;">{{ t.title }}</div>
+                                <div style="font-size: 0.8rem; color: #64748b;">{{ t.description or 'No scope details' }}</div>
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; color: #1e293b;">{{ t.employee_name }}</div>
+                                <div style="font-size: 0.78rem; color: #64748b;">{{ t.employee_code }} • {{ t.department }}</div>
+                            </td>
+                            <td>
+                                <span class="badge" style="background: #e2e8f0; color: #334155;">{{ t.project_name }}</span>
+                            </td>
+                            <td>
+                                {% if t.status == 'COMPLETED' %}
+                                <span class="badge badge-success"><span class="badge-dot dot-emerald"></span> COMPLETED</span>
+                                {% elif t.status == 'FAILED' %}
+                                <span class="badge badge-danger"><span class="badge-dot dot-rose"></span> FAILED</span>
+                                {% elif t.status == 'BLOCKED' %}
+                                <span class="badge badge-warning"><span class="badge-dot dot-amber"></span> BLOCKED</span>
+                                {% else %}
+                                <span class="badge badge-info"><span class="badge-dot dot-cyan"></span> {{ t.status }}</span>
+                                {% endif %}
+
+                                {% if t.employee_result %}
+                                <div style="font-size: 0.78rem; color: #065f46; margin-top: 3px;"><strong>Deliverable:</strong> {{ t.employee_result }}</div>
+                                {% endif %}
+                                {% if t.employee_reason %}
+                                <div style="font-size: 0.78rem; color: #991b1b; margin-top: 2px;"><strong>Reason:</strong> {{ t.employee_reason }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if t.manager_rating is not none %}
+                                <div style="font-size: 1.2rem; font-weight: 800; color: {% if t.manager_rating >= 4.5 %}#059669{% elif t.manager_rating >= 3.5 %}#6366f1{% else %}#e11d48{% endif %};">
+                                    {{ "%.2f"|format(t.manager_rating) }} <span style="font-size: 0.75rem; font-weight: normal; color: #94a3b8;">/ 5.00</span>
+                                </div>
+                                {% else %}
+                                <span class="badge" style="background: #fef3c7; color: #92400e;">Unscored</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if t.manager_comments %}
+                                <div style="font-size: 0.82rem; color: #334155; font-style: italic;">"{{ t.manager_comments }}"</div>
+                                {% else %}
+                                <span class="text-muted" style="font-size: 0.8rem;">No comments yet</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-primary" onclick="openScoreTaskModal({{ t.task_id }}, '{{ t.title|escape }}', '{{ t.employee_name|escape }}', {{ t.manager_rating or 5.0 }}, '{{ (t.manager_comments or '')|escape }}')">
+                                    <i class="fas fa-star mr-1"></i> {% if t.manager_rating %}Re-score{% else %}Score Task{% endif %}
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state py-3">
+                <div class="empty-icon" style="background: #f8fafc; color: #94a3b8;">
+                    <i class="fas fa-tasks"></i>
+                </div>
+                <h4 style="font-weight: 600; color: #1e293b; margin-top: 10px;">No Tasks to Evaluate</h4>
+                <p class="text-muted" style="max-width: 420px; margin: 6px auto;">Tasks assigned to direct reports will appear here for performance rating.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- DIRECT REPORTS PROJECTS -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title" style="font-size: 1.1rem; font-weight: 700; color: #1e293b;">
+                <i class="fas fa-project-diagram" style="color: #6366f1; margin-right: 8px;"></i>
+                Direct Reports Registered Projects ({{ projects|length }})
+            </h3>
+        </div>
+        <div class="card-body p-0">
+            {% if projects %}
             <div class="table-responsive">
                 <table class="table">
                     <thead>
@@ -22,7 +136,6 @@
                             <th>Priority</th>
                             <th>Due Date</th>
                             <th>Status</th>
-                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -30,142 +143,89 @@
                         <tr>
                             <td>
                                 <strong>{{ p.employee_name }}</strong><br>
-                                <small style="color: var(--text-muted);">{{ p.employee_code }} • {{ p.department }}</small>
+                                <small style="color: #64748b;">{{ p.employee_code }} • {{ p.department }}</small>
                             </td>
                             <td>
                                 <strong>{{ p.name }}</strong><br>
-                                <small style="color: var(--text-muted);">{{ p.description or 'No scope notes.' }}</small>
+                                <small style="color: #64748b;">{{ p.description or 'No scope notes.' }}</small>
                             </td>
                             <td>{{ p.category or 'General' }}</td>
                             <td><strong>{{ p.milestones_completed }}</strong> / {{ p.milestones_total }}</td>
-                            <td>
-                                <strong>{{ p.progress }}%</strong>
-                            </td>
-                            <td><span class="badge badge-under_review">{{ p.priority }}</span></td>
-                            <td>{{ p.due_date.strftime('%Y-%m-%d') if p.due_date else 'N/A' }}</td>
-                            <td><span class="badge badge-{{ p.status|lower }}">{{ p.status|replace('_', ' ')|upper }}</span></td>
-                            <td>
-                                <button class="btn btn-secondary btn-sm" onclick='openUpdateTeamProjectModal({{ p|tojson }})'>
-                                    Update
-                                </button>
-                            </td>
+                            <td><strong>{{ p.progress }}%</strong></td>
+                            <td><span class="badge" style="background: #fef3c7; color: #92400e;">{{ p.priority }}</span></td>
+                            <td>{{ p.due_date if p.due_date else 'N/A' }}</td>
+                            <td><span class="badge" style="background: #e0e7ff; color: #3730a3;">{{ p.status|upper }}</span></td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-        {% else %}
-            <p style="color: var(--text-muted); text-align: center; padding: 20px 0;">No project records found for direct reports.</p>
-        {% endif %}
+            {% else %}
+            <div class="empty-state py-3">
+                <p class="text-muted">No project records found for direct reports.</p>
+            </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 
-<!-- Update Project Progress Modal -->
-<div class="modal-overlay" id="teamProjectModal">
-    <div class="modal-card">
-        <div class="modal-header">
-            <h3 class="modal-title">Update Project Milestones & Progress</h3>
-            <button class="modal-close" onclick="closeModal('teamProjectModal')">&times;</button>
+<!-- SCORE TASK MODAL -->
+<div id="scoreTaskModal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 1050; align-items: center; justify-content: center;">
+    <div class="card" style="width: 100%; max-width: 500px; margin: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+        <div class="card-header d-flex justify-between align-center">
+            <h3 class="card-title" style="font-size: 1.1rem; font-weight: 700; color: #1e293b;">
+                <i class="fas fa-star" style="color: #f59e0b; margin-right: 8px;"></i>
+                Score Task Performance
+            </h3>
+            <button type="button" onclick="closeScoreTaskModal()" class="btn-close" style="background: transparent; border: none; font-size: 1.25rem; cursor: pointer; color: #94a3b8;">&times;</button>
         </div>
-        <form id="teamProjectForm" onsubmit="handleTeamProjectSubmit(event)">
-            <input type="hidden" id="tp_project_id">
-            <input type="hidden" id="tp_name">
-            <input type="hidden" id="tp_category">
-            <input type="hidden" id="tp_description">
-            <input type="hidden" id="tp_priority">
-            <input type="hidden" id="tp_due_date">
-
-            <div class="modal-body">
-                <div style="background: var(--bg-subtle); padding: 10px; border: 1px solid var(--border); margin-bottom: 12px;">
-                    <div style="font-weight: 700;" id="tp_emp_name"></div>
-                    <div style="font-size: 0.88rem;" id="tp_title"></div>
+        <form method="POST" action="{{ url_for('manager_review_task') }}">
+            <div class="card-body">
+                <input type="hidden" id="modal_score_task_id" name="task_id">
+                
+                <div class="mb-1" style="background: #f8fafc; padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.8rem; color: #64748b;">Employee: <strong id="modal_score_emp_name" style="color: #1e293b;"></strong></div>
+                    <div style="font-size: 0.95rem; font-weight: 600; color: #0f172a; margin-top: 4px;" id="modal_score_task_title"></div>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label" for="tp_completed">Completed Milestones</label>
-                        <input type="number" id="tp_completed" name="milestones_completed" min="0" class="form-control" required>
+                <div class="form-group mb-1">
+                    <label class="form-label" for="modal_task_rating">Task Performance Rating (1.00 - 5.00) <span class="text-danger">*</span></label>
+                    <div class="d-flex align-center gap-1">
+                        <input type="number" id="modal_task_rating" name="rating" min="1.0" max="5.0" step="0.05" class="form-control" style="font-size: 1.2rem; font-weight: 700;" required>
+                        <span style="font-size: 0.85rem; color: #64748b;">/ 5.00 max</span>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label" for="tp_total">Total Milestones</label>
-                        <input type="number" id="tp_total" name="milestones_total" min="0" class="form-control" required>
+                    <div style="font-size: 0.78rem; color: #64748b; margin-top: 4px;">
+                        <em>Benchmark: A cumulative average &gt; 4.60 across tasks unlocks employee promotion appeal.</em>
                     </div>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label" for="tp_progress">Progress (%) (0 - 100) *</label>
-                        <input type="number" id="tp_progress" name="progress" min="0" max="100" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="tp_status">Status *</label>
-                        <select id="tp_status" name="status" class="form-control" required>
-                            <option value="pending">Pending</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="completed">Completed</option>
-                        </select>
-                    </div>
+                <div class="form-group mb-1">
+                    <label class="form-label" for="modal_score_comments">Performance Feedback & Observations</label>
+                    <textarea id="modal_score_comments" name="comments" class="form-control" rows="3" placeholder="Specify technical quality, timeliness, problem solving, or reasons if lower score..."></textarea>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('teamProjectModal')">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save Project Update</button>
+            <div class="card-footer d-flex justify-between align-center">
+                <button type="button" onclick="closeScoreTaskModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);">
+                    <i class="fas fa-check mr-1"></i> Save Task Rating
+                </button>
             </div>
         </form>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_scripts %}
 <script>
-function openUpdateTeamProjectModal(p) {
-    document.getElementById("tp_project_id").value = p.project_id;
-    document.getElementById("tp_name").value = p.name;
-    document.getElementById("tp_category").value = p.category || "Platform Engineering";
-    document.getElementById("tp_description").value = p.description || "";
-    document.getElementById("tp_priority").value = p.priority || "Medium";
-    document.getElementById("tp_due_date").value = p.due_date ? p.due_date.substring(0, 10) : "";
-    document.getElementById("tp_emp_name").textContent = "Employee: " + p.employee_name;
-    document.getElementById("tp_title").textContent = "Project: " + p.name;
-    document.getElementById("tp_completed").value = p.milestones_completed || 0;
-    document.getElementById("tp_total").value = p.milestones_total || 0;
-    document.getElementById("tp_progress").value = p.progress;
-    document.getElementById("tp_status").value = p.status;
-    openModal("teamProjectModal");
+function openScoreTaskModal(taskId, title, empName, rating, comments) {
+    document.getElementById('modal_score_task_id').value = taskId;
+    document.getElementById('modal_score_task_title').textContent = title;
+    document.getElementById('modal_score_emp_name').textContent = empName;
+    document.getElementById('modal_task_rating').value = rating ? Number(rating).toFixed(2) : '5.00';
+    document.getElementById('modal_score_comments').value = comments || '';
+    document.getElementById('scoreTaskModal').style.display = 'flex';
 }
 
-async function handleTeamProjectSubmit(e) {
-    e.preventDefault();
-    const id = document.getElementById("tp_project_id").value;
-    const completed = parseInt(document.getElementById("tp_completed").value) || 0;
-    const total = parseInt(document.getElementById("tp_total").value) || 0;
-    const progress = parseInt(document.getElementById("tp_progress").value) || 0;
-
-    if (completed > total) {
-        showToast("Completed milestones cannot exceed total milestones", "error");
-        return;
-    }
-
-    const data = {
-        name: document.getElementById("tp_name").value,
-        category: document.getElementById("tp_category").value,
-        description: document.getElementById("tp_description").value,
-        priority: document.getElementById("tp_priority").value,
-        due_date: document.getElementById("tp_due_date").value || null,
-        milestones_completed: completed,
-        milestones_total: total,
-        progress: progress,
-        status: document.getElementById("tp_status").value
-    };
-
-    try {
-        const res = await apiRequest(`/api/projects/${id}`, "PUT", data);
-        showToast(res.message || "Project updated.", "success");
-        closeModal("teamProjectModal");
-        setTimeout(() => window.location.reload(), 800);
-    } catch (err) {
-        showToast(err.message, "error");
-    }
+function closeScoreTaskModal() {
+    document.getElementById('scoreTaskModal').style.display = 'none';
 }
 </script>
 {% endblock %}

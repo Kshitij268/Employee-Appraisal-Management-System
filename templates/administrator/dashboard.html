@@ -1,26 +1,482 @@
 {% extends "base.html" %}
 
-{% block title %}Administrator Dashboard | Employee Appraisal Management System{% endblock %}
+{% block title %}Administrator Dashboard - EAMS{% endblock %}
 
 {% block content %}
-<div class="dashboard-header" style="margin-bottom: 24px;">
-    <h2>System Administration Console</h2>
-    <p style="color: var(--text-muted);">Overview of system users, projects, and security controls.</p>
-</div>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category }}">
-                <span>{{ message }}</span>
-                <button onclick="this.parentElement.remove()" style="background:none; border:none; cursor:pointer; font-size:1.1rem; color:inherit;">&times;</button>
+<style>
+.admin-dashboard {
+    color: #171717;
+    background: #f7f7f7;
+    min-height: 100%;
+}
+
+.admin-dashboard * {
+    box-sizing: border-box;
+}
+
+.admin-header {
+    padding: 10px 0 28px;
+    border-bottom: 1px solid #d4d4d4;
+    margin-bottom: 28px;
+}
+
+.admin-header-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 24px;
+}
+
+.admin-title {
+    margin: 0;
+    font-size: 30px;
+    font-weight: 700;
+    color: #111;
+}
+
+.admin-subtitle {
+    margin: 8px 0 0;
+    color: #737373;
+    font-size: 14px;
+}
+
+.admin-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.admin-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 14px;
+    border: 1px solid #262626;
+    background: #171717;
+    color: #fff;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 3px;
+}
+
+.admin-action:hover {
+    background: #333;
+    color: #fff;
+}
+
+.admin-action.secondary {
+    background: #fff;
+    color: #222;
+    border-color: #bdbdbd;
+}
+
+.admin-action.secondary:hover {
+    background: #eee;
+}
+
+.admin-section {
+    margin-bottom: 32px;
+}
+
+.admin-section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+}
+
+.admin-section-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.admin-section-link {
+    color: #525252;
+    text-decoration: none;
+    font-size: 13px;
+}
+
+.admin-section-link:hover {
+    color: #000;
+    text-decoration: underline;
+}
+
+.admin-overview {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid #bdbdbd;
+    border-bottom: 1px solid #bdbdbd;
+    background: #fff;
+}
+
+.admin-stat {
+    padding: 18px 20px;
+    border-right: 1px solid #d4d4d4;
+}
+
+.admin-stat:last-child {
+    border-right: none;
+}
+
+.admin-stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: #737373;
+    margin-bottom: 6px;
+}
+
+.admin-stat-value {
+    font-size: 27px;
+    font-weight: 700;
+    color: #111;
+}
+
+.admin-stat-description {
+    margin-top: 5px;
+    font-size: 12px;
+    color: #8a8a8a;
+}
+
+.admin-table-wrap {
+    background: #fff;
+    border-top: 1px solid #bdbdbd;
+    border-bottom: 1px solid #bdbdbd;
+    overflow-x: auto;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 650px;
+}
+
+.admin-table th {
+    padding: 11px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #737373;
+    background: #f1f1f1;
+    border-bottom: 1px solid #cfcfcf;
+}
+
+.admin-table td {
+    padding: 13px 14px;
+    font-size: 13px;
+    color: #333;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.admin-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.admin-table tbody tr:hover {
+    background: #fafafa;
+}
+
+.admin-primary-text {
+    font-weight: 600;
+    color: #171717;
+}
+
+.admin-secondary-text {
+    margin-top: 3px;
+    font-size: 11px;
+    color: #8a8a8a;
+}
+
+.admin-muted {
+    color: #8a8a8a;
+}
+
+.admin-score {
+    font-weight: 700;
+    color: #171717;
+}
+
+.admin-status {
+    display: inline-block;
+    padding: 4px 8px;
+    border: 1px solid #cfcfcf;
+    background: #f5f5f5;
+    color: #404040;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 2px;
+}
+
+.admin-status.completed {
+    background: #eee;
+    color: #171717;
+    border-color: #b5b5b5;
+}
+
+.admin-status.failed,
+.admin-status.blocked {
+    background: #fafafa;
+    color: #525252;
+}
+
+.admin-empty {
+    padding: 25px 20px;
+    text-align: center;
+    color: #8a8a8a;
+    font-size: 13px;
+    background: #fff;
+}
+
+.admin-log-time,
+.admin-ip {
+    color: #737373;
+    font-size: 11px;
+}
+
+.admin-log-action {
+    font-weight: 600;
+    color: #222;
+}
+
+.admin-log-entity {
+    color: #666;
+    font-size: 12px;
+}
+
+@media (max-width: 900px) {
+    .admin-overview {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .admin-stat:nth-child(2) {
+        border-right: none;
+    }
+
+    .admin-stat:nth-child(-n+2) {
+        border-bottom: 1px solid #d4d4d4;
+    }
+
+    .admin-header-inner {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 600px) {
+    .admin-title {
+        font-size: 24px;
+    }
+
+    .admin-overview {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-stat {
+        border-right: none;
+        border-bottom: 1px solid #d4d4d4;
+    }
+
+    .admin-stat:last-child {
+        border-bottom: none;
+    }
+
+    .admin-actions {
+        width: 100%;
+    }
+
+    .admin-action {
+        flex: 1;
+        justify-content: center;
+    }
+}
+</style>
+
+<div class="admin-dashboard">
+    <header class="admin-header">
+        <div class="admin-header-inner">
+            <div>
+                <h1 class="admin-title">Enterprise System Administrator</h1>
+                <p class="admin-subtitle">Centralized project management, task allocation and system oversight</p>
             </div>
-        {% endfor %}
-    {% endif %}
-{% endwith %}
 
-<div class="card" style="padding: 20px; margin-bottom: 20px;">
-    <h3 style="margin-top:0;">Administrator Quick Controls</h3>
-    <p>System Administrator role active. Comprehensive APIs available at <code>/api/administrator/employees</code> and <code>/api/administrator/projects</code>.</p>
+            <div class="admin-actions">
+                <a href="{{ url_for('administrator_projects') }}" class="admin-action">
+                    <i class="fas fa-plus"></i>
+                    New Project
+                </a>
+                <a href="{{ url_for('administrator_tasks') }}" class="admin-action secondary">
+                    <i class="fas fa-tasks"></i>
+                    Allocate Tasks
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <section class="admin-section">
+        <div class="admin-section-heading">
+            <h2 class="admin-section-title">System Overview</h2>
+        </div>
+
+        <div class="admin-overview">
+            <div class="admin-stat">
+                <div class="admin-stat-label">Employees</div>
+                <div class="admin-stat-value">{{ metrics.total_employees if metrics else employees|length }}</div>
+                <div class="admin-stat-description">Active employee accounts</div>
+            </div>
+
+            <div class="admin-stat">
+                <div class="admin-stat-label">Projects</div>
+                <div class="admin-stat-value">{{ metrics.total_projects if metrics else projects|length }}</div>
+                <div class="admin-stat-description">Projects under tracking</div>
+            </div>
+
+            <div class="admin-stat">
+                <div class="admin-stat-label">Tasks</div>
+                <div class="admin-stat-value">{{ metrics.total_tasks if metrics else tasks|length }}</div>
+                <div class="admin-stat-description">Allocated deliverables</div>
+            </div>
+
+            <div class="admin-stat">
+                <div class="admin-stat-label">Claims</div>
+                <div class="admin-stat-value">{{ metrics.total_claims if metrics else claims|length }}</div>
+                <div class="admin-stat-description">Work claims filed</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="admin-section">
+        <div class="admin-section-heading">
+            <h2 class="admin-section-title">Active Corporate Projects</h2>
+            <a href="{{ url_for('administrator_projects') }}" class="admin-section-link">View all projects →</a>
+        </div>
+
+        {% if projects %}
+        <div class="admin-table-wrap">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Project</th>
+                        <th>Assigned Lead</th>
+                        <th>Priority</th>
+                        <th>Progress</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in projects[:6] %}
+                    <tr>
+                        <td>
+                            <div class="admin-primary-text">{{ p.name }}</div>
+                            <div class="admin-secondary-text">{{ p.category or 'General' }}</div>
+                        </td>
+                        <td>
+                            <div class="admin-primary-text">{{ p.employee_name }}</div>
+                            <div class="admin-secondary-text">{{ p.department }}</div>
+                        </td>
+                        <td><span class="admin-status">{{ p.priority }}</span></td>
+                        <td><span class="admin-score">{{ p.progress }}%</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="admin-empty">No projects created yet.</div>
+        {% endif %}
+    </section>
+
+    <section class="admin-section">
+        <div class="admin-section-heading">
+            <h2 class="admin-section-title">Recent Task Allocations</h2>
+            <a href="{{ url_for('administrator_tasks') }}" class="admin-section-link">Manage tasks →</a>
+        </div>
+
+        {% if tasks %}
+        <div class="admin-table-wrap">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Task</th>
+                        <th>Assignee</th>
+                        <th>Status</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in tasks[:6] %}
+                    <tr>
+                        <td>
+                            <div class="admin-primary-text">{{ t.title }}</div>
+                            <div class="admin-secondary-text">Project: {{ t.project_name }}</div>
+                        </td>
+                        <td><div class="admin-primary-text">{{ t.employee_name }}</div></td>
+                        <td>
+                            {% if t.status == 'COMPLETED' %}
+                                <span class="admin-status completed">Completed</span>
+                            {% elif t.status == 'FAILED' %}
+                                <span class="admin-status failed">Failed</span>
+                            {% elif t.status == 'BLOCKED' %}
+                                <span class="admin-status blocked">Blocked</span>
+                            {% else %}
+                                <span class="admin-status">{{ t.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if t.manager_rating is not none %}
+                                <span class="admin-score">{{ "%.2f"|format(t.manager_rating) }}</span>
+                            {% else %}
+                                <span class="admin-muted">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="admin-empty">No tasks created yet.</div>
+        {% endif %}
+    </section>
+
+    <section class="admin-section">
+        <div class="admin-section-heading">
+            <h2 class="admin-section-title">System Security & Event Audit Logs</h2>
+            <a href="{{ url_for('administrator_audit_logs') }}" class="admin-section-link">View full log stream →</a>
+        </div>
+
+        {% if recent_logs %}
+        <div class="admin-table-wrap">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>User</th>
+                        <th>Action / Event</th>
+                        <th>Entity</th>
+                        <th>IP Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in recent_logs[:8] %}
+                    <tr>
+                        <td><span class="admin-log-time">{{ log.created_at }}</span></td>
+                        <td><span class="admin-primary-text">{{ log.user_name or 'System' }}</span></td>
+                        <td><span class="admin-log-action">{{ log.action }}</span></td>
+                        <td><span class="admin-log-entity">{{ log.entity_type }} #{{ log.entity_id or '-' }}</span></td>
+                        <td><span class="admin-ip">{{ log.ip_address or '127.0.0.1' }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="admin-empty">No audit logs recorded yet.</div>
+        {% endif %}
+    </section>
 </div>
+
 {% endblock %}

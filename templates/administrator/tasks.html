@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Enterprise Tasks Allocation - EAMS Admin{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div class="d-flex justify-between align-center flex-wrap gap-1">
+        <div>
+            <h1 class="page-title">Enterprise Task Allocations</h1>
+            <p class="page-subtitle">Assign granular project deliverables to employees and monitor progress, deliverables, and performance ratings</p>
+        </div>
+        <div class="d-flex gap-1 align-center">
+            <span class="badge badge-info"><span class="badge-dot dot-cyan"></span> Total Tasks: {{ tasks|length }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="content-body">
+    <!-- CREATE TASK ALLOCATION FORM -->
+    <div class="card mb-2">
+        <div class="card-header pb-0">
+            <h3 class="card-title" style="font-size: 1.15rem; font-weight: 700; color: #1e293b;">
+                <i class="fas fa-plus-circle" style="color: #059669; margin-right: 8px;"></i>
+                Allocate New Task to Employee
+            </h3>
+            <p class="text-muted" style="font-size: 0.85rem; margin-top: 4px;">Assign a specific deliverable under a project to an employee for execution and scoring.</p>
+        </div>
+        <div class="card-body pt-1">
+            <form method="POST" action="{{ url_for('administrator_tasks') }}">
+                <div class="grid grid-2 mb-1">
+                    <div class="form-group">
+                        <label class="form-label" for="project_id">Parent Corporate Project <span class="text-danger">*</span></label>
+                        <select id="project_id" name="project_id" class="form-control" required>
+                            <option value="">-- Select Project --</option>
+                            {% for p in projects %}
+                            <option value="{{ p.project_id }}">{{ p.name }} (Lead: {{ p.employee_name }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="employee_id">Assigned Employee <span class="text-danger">*</span></label>
+                        <select id="employee_id" name="employee_id" class="form-control" required>
+                            <option value="">-- Select Employee --</option>
+                            {% for emp in employees %}
+                            <option value="{{ emp.employee_id }}">
+                                {{ emp.name }} ({{ emp.employee_code }} • {{ emp.department }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-2 mb-1">
+                    <div class="form-group">
+                        <label class="form-label" for="title">Task Title <span class="text-danger">*</span></label>
+                        <input type="text" id="title" name="title" class="form-control" placeholder="e.g. Implement OAuth 2.0 Token Revocation Endpoint" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="due_date">Task Delivery Deadline</label>
+                        <input type="date" id="due_date" name="due_date" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-group mb-1">
+                    <label class="form-label" for="description">Task Specification & Success Criteria</label>
+                    <textarea id="description" name="description" class="form-control" rows="2" placeholder="Define technical requirements, API specs, test coverage standards, and acceptance criteria..."></textarea>
+                </div>
+
+                <div class="d-flex justify-between align-center mt-1">
+                    <div class="text-muted" style="font-size: 0.82rem;">
+                        <i class="fas fa-info-circle" style="color: #6366f1;"></i> The assigned employee will see this task in their dashboard and will record completion status.
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%);">
+                        <i class="fas fa-check-circle mr-1"></i> Allocate Task
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ALL TASKS TABLE -->
+    <div class="card">
+        <div class="card-header d-flex justify-between align-center">
+            <h3 class="card-title" style="font-size: 1.15rem; font-weight: 700; color: #1e293b;">
+                <i class="fas fa-tasks" style="color: #6366f1; margin-right: 8px;"></i>
+                Master Enterprise Tasks Docket
+            </h3>
+        </div>
+        <div class="card-body p-0">
+            {% if tasks %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Task ID & Title</th>
+                            <th>Project</th>
+                            <th>Assignee</th>
+                            <th>Status & Deliverable</th>
+                            <th>Manager Score</th>
+                            <th>Manager Feedback</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in tasks %}
+                        <tr>
+                            <td>
+                                <strong style="font-family: monospace; color: #6366f1;">#TSK-{{ t.task_id }}</strong>
+                                <div style="font-weight: 600; color: #1e293b;">{{ t.title }}</div>
+                                <div style="font-size: 0.78rem; color: #64748b;">{{ t.description or 'No scope notes' }}</div>
+                                {% if t.due_date %}
+                                <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 2px;">Due: {{ t.due_date }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge" style="background: #e0e7ff; color: #3730a3;">{{ t.project_name }}</span>
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; color: #1e293b;">{{ t.employee_name }}</div>
+                                <div style="font-size: 0.78rem; color: #64748b;">{{ t.employee_code }} • {{ t.department }}</div>
+                            </td>
+                            <td>
+                                {% if t.status == 'COMPLETED' %}
+                                <span class="badge badge-success"><span class="badge-dot dot-emerald"></span> COMPLETED</span>
+                                {% elif t.status == 'FAILED' %}
+                                <span class="badge badge-danger"><span class="badge-dot dot-rose"></span> FAILED</span>
+                                {% elif t.status == 'BLOCKED' %}
+                                <span class="badge badge-warning"><span class="badge-dot dot-amber"></span> BLOCKED</span>
+                                {% else %}
+                                <span class="badge badge-info"><span class="badge-dot dot-cyan"></span> {{ t.status }}</span>
+                                {% endif %}
+
+                                {% if t.employee_result %}
+                                <div style="font-size: 0.78rem; color: #065f46; margin-top: 3px;"><strong>Deliverable:</strong> {{ t.employee_result }}</div>
+                                {% endif %}
+                                {% if t.employee_reason %}
+                                <div style="font-size: 0.78rem; color: #991b1b; margin-top: 2px;"><strong>Reason:</strong> {{ t.employee_reason }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if t.manager_rating is not none %}
+                                <div style="font-size: 1.15rem; font-weight: 800; color: {% if t.manager_rating >= 4.5 %}#059669{% elif t.manager_rating >= 3.5 %}#6366f1{% else %}#e11d48{% endif %};">
+                                    {{ "%.2f"|format(t.manager_rating) }} <span style="font-size: 0.72rem; color: #94a3b8; font-weight: normal;">/ 5.0</span>
+                                </div>
+                                {% else %}
+                                <span class="badge" style="background: #f1f5f9; color: #94a3b8;">Unscored</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if t.manager_comments %}
+                                <div style="font-size: 0.8rem; color: #334155; font-style: italic;">"{{ t.manager_comments }}"</div>
+                                {% else %}
+                                <span class="text-muted" style="font-size: 0.78rem;">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state py-3">
+                <p class="text-muted">No tasks allocated yet. Use the form above to assign tasks.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -5,6 +5,7 @@ Database Access Layer
 
 import datetime
 import hashlib
+import os
 import secrets
 from datetime import datetime, timedelta
 import mysql.connector
@@ -30,6 +31,42 @@ def get_db_connection(use_database=True):
         config["database"] = Config.DB_NAME
 
     return mysql.connector.connect(**config)
+
+
+def init_db():
+    """Create the configured database and all project tables when missing.
+
+    This is deliberately safe to run repeatedly.  The setup script has always
+    called this function, but it was missing, which made first-time setup fail
+    before a user could reach the sign-in screen.
+    """
+    schema_path = os.path.join(os.path.dirname(__file__), "sql", "schema.sql")
+    if not os.path.isfile(schema_path):
+        raise FileNotFoundError("Database schema file was not found.")
+
+    with open(schema_path, "r", encoding="utf-8") as schema_file:
+        schema = schema_file.read()
+
+    # schema.sql is intentionally plain SQL (no stored procedures), so simple
+    # statement splitting is reliable here.  Honour a custom DB_NAME rather
+    # than silently creating only the historical default database.
+    schema = schema.replace("CREATE DATABASE IF NOT EXISTS employee_appraisal", f"CREATE DATABASE IF NOT EXISTS `{Config.DB_NAME}`")
+    schema = schema.replace("USE employee_appraisal", f"USE `{Config.DB_NAME}`")
+    conn = get_db_connection(use_database=False)
+    cursor = conn.cursor()
+    try:
+        for statement in schema.split(";"):
+            statement = statement.strip()
+            if statement:
+                cursor.execute(statement)
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cursor.close()
+        conn.close()
 
 
 def execute_query(query, params=None, fetchone=False, fetchall=False, commit=False, return_lastrowid=False):
@@ -280,6 +317,59 @@ def migrate_db_schema():
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """)
         conn.commit()
+
+        # 12. Normalize existing emails to @gmail.com
+        cursor.execute("UPDATE users SET email = REPLACE(email, '@example.com', '@gmail.com') WHERE email LIKE '%@example.com'")
+        cursor.execute("UPDATE users SET email = REPLACE(email, '@eams.local', '@gmail.com') WHERE email LIKE '%@eams.local'")
+        conn.commit()
+
+        # 13. Ensure default System Administrator account with admin@gmail.com
+        cursor.execute("SELECT user_id, role, email FROM users WHERE role = 'administrator' OR email = 'admin@gmail.com'")
+        admin_row = cursor.fetchone()
+        if not admin_row:
+            cursor.execute("""
+                INSERT INTO users (name, email, password_hash, role, email_verified)
+                VALUES (%s, %s, %s, 'administrator', 1)
+            """, ("System Administrator", "admin@gmail.com", generate_password_hash("Password@123")))
+            conn.commit()
+            print("[SCHEMA] Seeded default administrator (admin@gmail.com / Password@123).")
+        else:
+            cursor.execute("UPDATE users SET email = 'admin@gmail.com', role = 'administrator' WHERE user_id = %s", (admin_row["user_id"],))
+            conn.commit()
+
+        # 14. Seed sample tasks and task reviews for demonstration if none exist
+        cursor.execute("SELECT COUNT(*) as cnt FROM project_tasks")
+        tasks_cnt = cursor.fetchone().get("cnt", 0)
+        if tasks_cnt == 0:
+            cursor.execute("SELECT employee_id FROM employees WHERE user_id = 3")
+            emp3 = cursor.fetchone()
+            emp3_id = emp3["employee_id"] if emp3 else 3
+            cursor.execute("SELECT project_id FROM projects LIMIT 1")
+            proj = cursor.fetchone()
+            proj_id = proj["project_id"] if proj else 1
+            cursor.execute("SELECT user_id FROM users WHERE role = 'manager' LIMIT 1")
+            mgr = cursor.fetchone()
+            mgr_id = mgr["user_id"] if mgr else 2
+
+            sample_tasks = [
+                (proj_id, emp3_id, mgr_id, "Design Enterprise 2FA & Auth Security Core", "Architect tokenless session security and strict credential validation.", "2026-10-15", "COMPLETED", "Completed all authentication workflows and verified test suites.", None),
+                (proj_id, emp3_id, mgr_id, "Database Query Optimization & Multi-Role Indexing", "Optimize complex relational queries and index access paths.", "2026-10-20", "COMPLETED", "Achieved sub-10ms response times across all aggregated tables.", None),
+                (proj_id, emp3_id, mgr_id, "Cloud Microservice Scalability & Resilience", "Configure automated failover mechanisms and resilient logging.", "2026-11-01", "COMPLETED", "Zero-downtime architecture validated in staging.", None)
+            ]
+            for t in sample_tasks:
+                cursor.execute("""
+                    INSERT INTO project_tasks (project_id, employee_id, assigned_by, title, description, due_date, status, employee_result, employee_reason)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, t)
+                t_id = cursor.lastrowid
+                rating = 4.80 if "2FA" in t[3] else (4.70 if "Database" in t[3] else 4.90)
+                cursor.execute("""
+                    INSERT INTO task_reviews (task_id, manager_id, rating, comments)
+                    VALUES (%s, %s, %s, %s)
+                """, (t_id, mgr_id, rating, "Exceptional delivery quality and proactive execution."))
+            conn.commit()
+            print("[SCHEMA] Seeded sample project tasks and task reviews for David Chen.")
+
         print("[SCHEMA] Migrations completed successfully.")
 
     except Exception as e:
@@ -1590,8 +1680,9 @@ def create_project_task(project_id, employee_id, assigned_by, title, description
 def get_tasks_by_employee(employee_id):
     """Retrieve all tasks assigned to an employee with review ratings."""
     sql = """
-        SELECT pt.*, p.project_name, u.name as assigned_by_name,
-               tr.review_id, tr.rating, tr.comments as review_comments, tr.reviewed_at
+        SELECT pt.*, p.name AS project_name, u.name AS assigned_by_name,
+               tr.review_id, tr.rating AS manager_rating,
+               tr.comments AS manager_comments, tr.reviewed_at
         FROM project_tasks pt
         JOIN projects p ON pt.project_id = p.project_id
         JOIN users u ON pt.assigned_by = u.user_id
@@ -1605,27 +1696,29 @@ def get_tasks_by_employee(employee_id):
 def get_tasks_by_manager(manager_user_id):
     """Retrieve tasks assigned by manager or for employees reporting to manager."""
     sql = """
-        SELECT pt.*, p.project_name, e.employee_code, e.department,
+        SELECT pt.*, p.name AS project_name, e.employee_code, e.department,
                u.name as employee_name, u.email as employee_email,
-               tr.review_id, tr.rating, tr.comments as review_comments, tr.reviewed_at
+               tr.review_id, tr.rating AS manager_rating,
+               tr.comments AS manager_comments, tr.reviewed_at
         FROM project_tasks pt
         JOIN projects p ON pt.project_id = p.project_id
         JOIN employees e ON pt.employee_id = e.employee_id
         JOIN users u ON e.user_id = u.user_id
         LEFT JOIN task_reviews tr ON pt.task_id = tr.task_id
-        WHERE pt.assigned_by = %s OR e.manager_id = %s OR p.manager_id = %s
+        WHERE pt.assigned_by = %s OR e.manager_id = %s
         ORDER BY pt.created_at DESC
     """
-    return execute_query(sql, (manager_user_id, manager_user_id, manager_user_id), fetchall=True)
+    return execute_query(sql, (manager_user_id, manager_user_id), fetchall=True)
 
 
 def get_task_by_id(task_id):
     """Retrieve task details by ID with project, employee, and review info."""
     sql = """
-        SELECT pt.*, p.project_name, e.employee_code, e.employee_id, e.manager_id,
+        SELECT pt.*, p.name AS project_name, e.employee_code, e.employee_id, e.manager_id,
                u.name as employee_name, u.email as employee_email,
                ab.name as assigned_by_name,
-               tr.review_id, tr.rating, tr.comments as review_comments, tr.reviewed_at
+               tr.review_id, tr.rating AS manager_rating,
+               tr.comments AS manager_comments, tr.reviewed_at
         FROM project_tasks pt
         JOIN projects p ON pt.project_id = p.project_id
         JOIN employees e ON pt.employee_id = e.employee_id
@@ -1944,15 +2037,85 @@ def get_all_employees_admin():
 
 
 def get_all_projects_admin():
-    """Retrieve all projects with manager details and task statistics for administrator portal."""
+    """Retrieve all projects with manager/employee details and task statistics for administrator portal."""
     sql = """
-        SELECT p.*, u.name as manager_name, u.email as manager_email,
-               COUNT(pt.task_id) as total_tasks,
-               SUM(CASE WHEN pt.status = 'COMPLETED' THEN 1 ELSE 0 END) as completed_tasks
+        SELECT p.*, 
+               e.employee_code,
+               u.name as employee_name, u.email as employee_email,
+               m.name as manager_name
         FROM projects p
-        LEFT JOIN users u ON p.manager_id = u.user_id
-        LEFT JOIN project_tasks pt ON p.project_id = pt.project_id
-        GROUP BY p.project_id
+        JOIN employees e ON p.employee_id = e.employee_id
+        JOIN users u ON e.user_id = u.user_id
+        LEFT JOIN users m ON e.manager_id = m.user_id
         ORDER BY p.created_at DESC
     """
     return execute_query(sql, fetchall=True)
+
+
+def create_project_admin(name, employee_id, category=None, description=None, priority='Medium', due_date=None, milestones_total=1):
+    """Administrator creates and assigns a project to an employee."""
+    sql = """
+        INSERT INTO projects (name, employee_id, category, description, priority, due_date, milestones_total, progress, status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, 0, 'pending')
+    """
+    proj_id = execute_query(sql, (name, employee_id, category, description, priority, due_date, milestones_total), commit=True, return_lastrowid=True)
+    create_audit_log(None, "ADMIN_CREATE_PROJECT", "PROJECT", proj_id, f"Administrator created and assigned project '{name}' to employee #{employee_id}")
+    return proj_id
+
+
+def get_all_tasks_admin():
+    """Retrieve all project tasks across the organization for administrator overview."""
+    sql = """
+        SELECT pt.*, p.name as project_name, 
+               e.employee_code, e.department,
+               u.name as employee_name, u.email as employee_email,
+               ab.name as assigned_by_name,
+               tr.rating AS manager_rating,
+               tr.comments AS manager_comments, tr.reviewed_at
+        FROM project_tasks pt
+        JOIN projects p ON pt.project_id = p.project_id
+        JOIN employees e ON pt.employee_id = e.employee_id
+        JOIN users u ON e.user_id = u.user_id
+        JOIN users ab ON pt.assigned_by = ab.user_id
+        LEFT JOIN task_reviews tr ON pt.task_id = tr.task_id
+        ORDER BY pt.created_at DESC
+    """
+    return execute_query(sql, fetchall=True)
+
+
+def get_all_claims_admin():
+    """Retrieve all additional work claims submitted by employees."""
+    sql = """
+        SELECT c.*, e.employee_code, e.department,
+               u.name as employee_name, u.email as employee_email,
+               m.name as manager_name
+        FROM claims c
+        JOIN employees e ON c.employee_id = e.employee_id
+        JOIN users u ON e.user_id = u.user_id
+        LEFT JOIN users m ON c.manager_id = m.user_id
+        ORDER BY c.created_at DESC
+    """
+    return execute_query(sql, fetchall=True)
+
+
+def get_admin_dashboard_metrics():
+    """Retrieve high-level system metrics for administrator overview."""
+    total_users = execute_query("SELECT COUNT(*) as cnt FROM users", fetchone=True).get("cnt", 0)
+    total_employees = execute_query("SELECT COUNT(*) as cnt FROM employees", fetchone=True).get("cnt", 0)
+    total_projects = execute_query("SELECT COUNT(*) as cnt FROM projects", fetchone=True).get("cnt", 0)
+    total_tasks = execute_query("SELECT COUNT(*) as cnt FROM project_tasks", fetchone=True).get("cnt", 0)
+    completed_tasks = execute_query("SELECT COUNT(*) as cnt FROM project_tasks WHERE status = 'COMPLETED'", fetchone=True).get("cnt", 0)
+    pending_promotions = execute_query("SELECT COUNT(*) as cnt FROM promotion_requests WHERE status = 'SUBMITTED'", fetchone=True).get("cnt", 0)
+    open_investigations = execute_query("SELECT COUNT(*) as cnt FROM investigations WHERE status = 'pending'", fetchone=True).get("cnt", 0)
+    total_claims = execute_query("SELECT COUNT(*) as cnt FROM claims", fetchone=True).get("cnt", 0)
+
+    return {
+        "total_users": total_users,
+        "total_employees": total_employees,
+        "total_projects": total_projects,
+        "total_tasks": total_tasks,
+        "completed_tasks": completed_tasks,
+        "pending_promotions": pending_promotions,
+        "open_investigations": open_investigations,
+        "total_claims": total_claims
+    }

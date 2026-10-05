@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Additional Work Claims - EAMS{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div class="d-flex justify-between align-center flex-wrap gap-1">
+        <div>
+            <h1 class="page-title">Additional Work Claims</h1>
+            <p class="page-subtitle">Submit and track off-cycle achievements, extra project deliverables, and initiative claims</p>
+        </div>
+        <div class="d-flex gap-1 align-center">
+            <span class="badge badge-info"><span class="badge-dot dot-cyan"></span> Total Claims: {{ claims|length }}</span>
+            <span class="badge badge-success"><span class="badge-dot dot-emerald"></span> Approved: {{ claims|selectattr('status', 'equalto', 'APPROVED')|list|length }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="content-body">
+    <!-- SUBMIT CLAIM SECTION -->
+    <div class="card mb-2">
+        <div class="card-header pb-0">
+            <h3 class="card-title" style="font-size: 1.15rem; font-weight: 700; color: #1e293b;">
+                <i class="fas fa-plus-circle" style="color: #059669; margin-right: 8px;"></i>
+                Submit New Work Claim
+            </h3>
+            <p class="text-muted" style="font-size: 0.85rem; margin-top: 4px;">Record extra work performed during this cycle to be considered by your manager for performance appraisal & promotion.</p>
+        </div>
+        <div class="card-body pt-1">
+            <form method="POST" action="{{ url_for('employee_claims') }}">
+                <div class="grid grid-2 mb-1">
+                    <div class="form-group">
+                        <label class="form-label" for="title">Claim Title <span class="text-danger">*</span></label>
+                        <input type="text" id="title" name="title" class="form-control" placeholder="e.g. Optimized Database Indexing / Handled Emergency Migration" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="appraisal_period">Appraisal Period</label>
+                        <input type="text" id="appraisal_period" name="appraisal_period" class="form-control" value="FY2026-Q1" placeholder="e.g. FY2026-Q1">
+                    </div>
+                </div>
+
+                <div class="grid grid-2 mb-1">
+                    <div class="form-group">
+                        <label class="form-label" for="work_date">Date of Work / Completion</label>
+                        <input type="date" id="work_date" name="work_date" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="document_reference">Proof / PR / Jira / Drive Link</label>
+                        <input type="text" id="document_reference" name="document_reference" class="form-control" placeholder="https://github.com/... or Doc Ref #">
+                    </div>
+                </div>
+
+                <div class="form-group mb-1">
+                    <label class="form-label" for="description">Detailed Description & Business Impact <span class="text-danger">*</span></label>
+                    <textarea id="description" name="description" class="form-control" rows="3" placeholder="Explain the problem solved, effort involved, and direct outcome for the team or client..." required></textarea>
+                </div>
+
+                <div class="d-flex justify-between align-center mt-1">
+                    <div class="text-muted" style="font-size: 0.82rem;">
+                        <i class="fas fa-info-circle" style="color: #3b82f6;"></i> Claims are forwarded directly to your assigned reporting manager for review.
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%);">
+                        <i class="fas fa-paper-plane mr-1"></i> Submit Work Claim
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CLAIMS HISTORY -->
+    <div class="card">
+        <div class="card-header d-flex justify-between align-center">
+            <div>
+                <h3 class="card-title" style="font-size: 1.15rem; font-weight: 700; color: #1e293b;">
+                    <i class="fas fa-history" style="color: #6366f1; margin-right: 8px;"></i>
+                    Your Submitted Claims History
+                </h3>
+                <p class="text-muted" style="font-size: 0.85rem; margin-top: 4px;">Review real-time status and feedback from manager evaluations</p>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if claims %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Claim ID</th>
+                            <th>Title & Details</th>
+                            <th>Period / Date</th>
+                            <th>Documentation</th>
+                            <th>Status</th>
+                            <th>Manager Feedback</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in claims %}
+                        <tr>
+                            <td>
+                                <strong style="font-family: monospace; color: #6366f1;">#CLM-{{ c.claim_id }}</strong>
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; color: #1e293b;">{{ c.title }}</div>
+                                <div style="font-size: 0.82rem; color: #64748b; margin-top: 2px;">{{ c.description }}</div>
+                            </td>
+                            <td>
+                                <div><span class="badge" style="background: #e0e7ff; color: #3730a3; font-weight: 600;">{{ c.appraisal_period }}</span></div>
+                                {% if c.work_date %}
+                                <div style="font-size: 0.78rem; color: #94a3b8; margin-top: 3px;">Date: {{ c.work_date }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if c.document_reference %}
+                                <span style="font-size: 0.82rem; color: #2563eb; word-break: break-all;">
+                                    <i class="fas fa-link mr-1"></i> {{ c.document_reference }}
+                                </span>
+                                {% else %}
+                                <span class="text-muted" style="font-size: 0.82rem;">None</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if c.status == 'APPROVED' %}
+                                <span class="badge badge-success"><span class="badge-dot dot-emerald"></span> Approved</span>
+                                {% elif c.status == 'REJECTED' %}
+                                <span class="badge badge-danger"><span class="badge-dot dot-rose"></span> Rejected</span>
+                                {% else %}
+                                <span class="badge badge-warning"><span class="badge-dot dot-amber"></span> Pending Review</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if c.manager_comments %}
+                                <div style="font-size: 0.85rem; color: #334155; font-style: italic;">"{{ c.manager_comments }}"</div>
+                                {% if c.reviewed_at %}
+                                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 2px;">Reviewed: {{ c.reviewed_at }}</div>
+                                {% endif %}
+                                {% else %}
+                                <span class="text-muted" style="font-size: 0.82rem;">Awaiting manager review</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state py-3">
+                <div class="empty-icon" style="background: #ecfdf5; color: #059669;">
+                    <i class="fas fa-clipboard-check"></i>
+                </div>
+                <h4 style="font-weight: 600; color: #1e293b; margin-top: 10px;">No Work Claims Submitted Yet</h4>
+                <p class="text-muted" style="max-width: 420px; margin: 6px auto;">Use the form above to record any additional accomplishments, off-cycle tasks, or contributions.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

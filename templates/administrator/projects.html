@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Organization Projects - EAMS Admin{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div class="d-flex justify-between align-center flex-wrap gap-1">
+        <div>
+            <h1 class="page-title">Corporate Projects & Portfolio Management</h1>
+            <p class="page-subtitle">Provision, allocate, and overview initiatives across all enterprise departments and employees</p>
+        </div>
+        <div class="d-flex gap-1 align-center">
+            <span class="badge badge-info"><span class="badge-dot dot-cyan"></span> Total Projects: {{ projects|length }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="content-body">
+    <!-- CREATE PROJECT FORM -->
+    <div class="card mb-2">
+        <div class="card-header pb-0">
+            <h3 class="card-title" style="font-size: 1.15rem; font-weight: 700; color: #1e293b;">
+                <i class="fas fa-plus-circle" style="color: #059669; margin-right: 8px;"></i>
+                Create & Assign New Project
+            </h3>
+            <p class="text-muted" style="font-size: 0.85rem; margin-top: 4px;">Assign a major corporate deliverable or initiative to any employee across departments.</p>
+        </div>
+        <div class="card-body pt-1">
+            <form method="POST" action="{{ url_for('administrator_projects') }}">
+                <div class="grid grid-2 mb-1">
+                    <div class="form-group">
+                        <label class="form-label" for="name">Project Title <span class="text-danger">*</span></label>
+                        <input type="text" id="name" name="name" class="form-control" placeholder="e.g. Distributed Cache Layer Migration" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="employee_id">Assignee / Lead Employee <span class="text-danger">*</span></label>
+                        <select id="employee_id" name="employee_id" class="form-control" required>
+                            <option value="">-- Select Employee --</option>
+                            {% for emp in employees %}
+                            <option value="{{ emp.employee_id }}">
+                                {{ emp.name }} ({{ emp.employee_code }} • {{ emp.department }} - {{ emp.designation }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-3 mb-1">
+                    <div class="form-group">
+                        <label class="form-label" for="category">Category</label>
+                        <select id="category" name="category" class="form-control">
+                            <option value="Platform Engineering" selected>Platform Engineering</option>
+                            <option value="Cloud Infrastructure">Cloud Infrastructure</option>
+                            <option value="Database Performance">Database Performance</option>
+                            <option value="UI/UX & Frontend">UI/UX & Frontend</option>
+                            <option value="Security & Compliance">Security & Compliance</option>
+                            <option value="AI / ML Systems">AI / ML Systems</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="priority">Priority</label>
+                        <select id="priority" name="priority" class="form-control">
+                            <option value="Low">Low</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="High">High</option>
+                            <option value="Critical">Critical</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="due_date">Target Delivery Date</label>
+                        <input type="date" id="due_date" name="due_date" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-group mb-1">
+                    <label class="form-label" for="description">Scope & Objective Narrative</label>
+                    <textarea id="description" name="description" class="form-control" rows="2" placeholder="Key deliverables, success criteria, and stakeholder expectations..."></textarea>
+                </div>
+
+                <div class="d-flex justify-between align-center mt-1">
+                    <div class="text-muted" style="font-size: 0.82rem;">
+                        <i class="fas fa-info-circle" style="color: #6366f1;"></i> Once created, you can break down projects into granular tasks under the Tasks Allocation menu.
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%);">
+                        <i class="fas fa-save mr-1"></i> Create Project
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ALL PROJECTS TABLE -->
+    <div class="card">
+        <div class="card-header d-flex justify-between align-center">
+            <h3 class="card-title" style="font-size: 1.15rem; font-weight: 700; color: #1e293b;">
+                <i class="fas fa-list" style="color: #6366f1; margin-right: 8px;"></i>
+                Organization-Wide Projects Portfolio
+            </h3>
+        </div>
+        <div class="card-body p-0">
+            {% if projects %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Project ID & Name</th>
+                            <th>Lead Employee</th>
+                            <th>Category</th>
+                            <th>Priority</th>
+                            <th>Progress</th>
+                            <th>Milestones</th>
+                            <th>Due Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in projects %}
+                        <tr>
+                            <td>
+                                <strong style="font-family: monospace; color: #6366f1;">#PRJ-{{ p.project_id }}</strong>
+                                <div style="font-weight: 600; color: #1e293b;">{{ p.name }}</div>
+                                <div style="font-size: 0.78rem; color: #64748b;">{{ p.description or 'No scope notes' }}</div>
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; color: #1e293b;">{{ p.employee_name }}</div>
+                                <div style="font-size: 0.78rem; color: #64748b;">{{ p.employee_code }} • {{ p.department }}</div>
+                                <div style="font-size: 0.75rem; color: #94a3b8;">{{ p.employee_email }}</div>
+                            </td>
+                            <td>
+                                <span class="badge" style="background: #f1f5f9; color: #334155;">{{ p.category or 'General' }}</span>
+                            </td>
+                            <td>
+                                <span class="badge" style="background: #fef3c7; color: #92400e;">{{ p.priority }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ p.progress }}%</strong>
+                            </td>
+                            <td>
+                                <strong>{{ p.milestones_completed }}</strong> / {{ p.milestones_total }}
+                            </td>
+                            <td style="font-size: 0.82rem; color: #475569;">
+                                {{ p.due_date if p.due_date else 'N/A' }}
+                            </td>
+                            <td>
+                                <span class="badge" style="background: #e0e7ff; color: #3730a3;">{{ p.status|upper }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state py-3">
+                <p class="text-muted">No projects found. Use the form above to initialize the first corporate project.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

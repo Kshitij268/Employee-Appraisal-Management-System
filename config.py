@@ -1,5 +1,27 @@
 import os
-from dotenv import load_dotenv
+
+# `python-dotenv` is convenient during local development, but the application
+# must still start when environment variables are supplied by the operating
+# system (or when the optional package has not yet been installed).
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(dotenv_path=None, override=False, *_args, **_kwargs):
+        """Small dependency-free .env reader used when python-dotenv is absent."""
+        path = dotenv_path or os.path.join(os.path.dirname(__file__), ".env")
+        if not os.path.isfile(path):
+            return False
+        with open(path, "r", encoding="utf-8") as env_file:
+            for raw_line in env_file:
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                if key and (override or key not in os.environ):
+                    os.environ[key] = value
+        return True
 
 # Load environment variables from .env file
 load_dotenv()
@@ -7,7 +29,9 @@ load_dotenv()
 class Config:
     """Base application configuration."""
     SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "eams-default-secret-key-change-in-production")
-    DEBUG = os.getenv("FLASK_DEBUG", "True").lower() in ("true", "1", "yes")
+    # Never expose Flask's interactive traceback unless it is explicitly enabled
+    # for local development.
+    DEBUG = os.getenv("FLASK_DEBUG", "False").lower() in ("true", "1", "yes")
     
     # MySQL settings
     DB_HOST = os.getenv("DB_HOST", "localhost")

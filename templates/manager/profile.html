@@ -35,7 +35,7 @@
                     </tr>
                     <tr>
                         <th>Joining Date</th>
-                        <td>{{ profile.joining_date.strftime('%B %d, %Y') if profile.joining_date else 'N/A' }}</td>
+                        <td>{{ profile.joining_date if profile.joining_date else 'N/A' }}</td>
                     </tr>
                 </tbody>
             </table>

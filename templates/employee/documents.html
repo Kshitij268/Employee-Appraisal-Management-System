@@ -66,7 +66,7 @@
                                                 <strong>{{ doc.document_name }}</strong>
                                             </a>
                                             <div style="font-size: 0.78rem; color: var(--text-muted);">
-                                                Submitted: {{ doc.submitted_at.strftime('%Y-%m-%d') if doc.submitted_at else 'N/A' }}
+                                                Submitted: {{ doc.submitted_at if doc.submitted_at else 'N/A' }}
                                             </div>
                                         </td>
                                         <td>{{ doc.document_type }}</td>

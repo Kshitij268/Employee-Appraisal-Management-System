@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Team Work Claims - EAMS Manager{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div class="d-flex justify-between align-center flex-wrap gap-1">
+        <div>
+            <h1 class="page-title">Team Additional Work Claims</h1>
+            <p class="page-subtitle">Review, validate, and evaluate off-cycle work claims submitted by your direct reports</p>
+        </div>
+        <div class="d-flex gap-1 align-center">
+            <span class="badge badge-info"><span class="badge-dot dot-cyan"></span> Total Claims: {{ claims|length }}</span>
+            <span class="badge badge-warning"><span class="badge-dot dot-amber"></span> Pending: {{ claims|selectattr('status', 'equalto', 'PENDING')|list|length }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="content-body">
+    <div class="card">
+        <div class="card-header d-flex justify-between align-center">
+            <div>
+                <h3 class="card-title" style="font-size: 1.15rem; font-weight: 700; color: #1e293b;">
+                    <i class="fas fa-tasks" style="color: #6366f1; margin-right: 8px;"></i>
+                    Incoming Work Claims Queue
+                </h3>
+                <p class="text-muted" style="font-size: 0.85rem; margin-top: 4px;">Approved claims are officially recognized toward performance ratings and promotion considerations.</p>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if claims %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Claim ID</th>
+                            <th>Employee</th>
+                            <th>Claim Title & Impact</th>
+                            <th>Period / Date</th>
+                            <th>Evidence / Docs</th>
+                            <th>Status</th>
+                            <th>Action / Review</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in claims %}
+                        <tr>
+                            <td>
+                                <strong style="font-family: monospace; color: #6366f1;">#CLM-{{ c.claim_id }}</strong>
+                                <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 2px;">{{ c.created_at }}</div>
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; color: #1e293b;">{{ c.employee_name }}</div>
+                                <div style="font-size: 0.78rem; color: #64748b;">{{ c.employee_code }} • {{ c.department }}</div>
+                                <div style="font-size: 0.75rem; color: #94a3b8;">{{ c.employee_email }}</div>
+                            </td>
+                            <td style="max-width: 280px;">
+                                <div style="font-weight: 600; color: #1e293b;">{{ c.title }}</div>
+                                <div style="font-size: 0.82rem; color: #475569; margin-top: 4px; line-height: 1.4;">{{ c.description }}</div>
+                            </td>
+                            <td>
+                                <span class="badge" style="background: #e0e7ff; color: #3730a3;">{{ c.appraisal_period }}</span>
+                                {% if c.work_date %}
+                                <div style="font-size: 0.78rem; color: #64748b; margin-top: 3px;">Date: {{ c.work_date }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if c.document_reference %}
+                                <span style="font-size: 0.82rem; color: #2563eb; word-break: break-all;">
+                                    <i class="fas fa-external-link-alt mr-1"></i> {{ c.document_reference }}
+                                </span>
+                                {% else %}
+                                <span class="text-muted" style="font-size: 0.82rem;">None provided</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if c.status == 'APPROVED' %}
+                                <span class="badge badge-success"><span class="badge-dot dot-emerald"></span> Approved</span>
+                                {% elif c.status == 'REJECTED' %}
+                                <span class="badge badge-danger"><span class="badge-dot dot-rose"></span> Rejected</span>
+                                {% else %}
+                                <span class="badge badge-warning"><span class="badge-dot dot-amber"></span> Pending Review</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if c.status == 'PENDING' %}
+                                <button type="button" class="btn btn-sm btn-primary" onclick="openClaimReviewModal({{ c.claim_id }}, '{{ c.title|escape }}', '{{ c.employee_name|escape }}')">
+                                    <i class="fas fa-check-circle mr-1"></i> Evaluate
+                                </button>
+                                {% else %}
+                                <div style="font-size: 0.82rem; color: #64748b;">
+                                    <strong>Reviewed:</strong> {{ c.status }}
+                                    {% if c.manager_comments %}
+                                    <div style="font-style: italic; color: #334155; margin-top: 2px;">"{{ c.manager_comments }}"</div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state py-3">
+                <div class="empty-icon" style="background: #f1f5f9; color: #64748b;">
+                    <i class="fas fa-inbox"></i>
+                </div>
+                <h4 style="font-weight: 600; color: #1e293b; margin-top: 10px;">No Pending Claims</h4>
+                <p class="text-muted" style="max-width: 420px; margin: 6px auto;">There are no additional work claims submitted by your team members at this moment.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- EVALUATE CLAIM MODAL -->
+<div id="claimModal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 1050; align-items: center; justify-content: center;">
+    <div class="card" style="width: 100%; max-width: 500px; margin: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+        <div class="card-header d-flex justify-between align-center">
+            <h3 class="card-title" style="font-size: 1.1rem; font-weight: 700; color: #1e293b;">
+                <i class="fas fa-stamp" style="color: #6366f1; margin-right: 8px;"></i>
+                Evaluate Claim
+            </h3>
+            <button type="button" onclick="closeClaimReviewModal()" class="btn-close" style="background: transparent; border: none; font-size: 1.25rem; cursor: pointer; color: #94a3b8;">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('manager_claims') }}">
+            <div class="card-body">
+                <input type="hidden" id="modal_claim_id" name="claim_id">
+                
+                <div class="mb-1" style="background: #f8fafc; padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 0.8rem; color: #64748b;">Employee: <strong id="modal_emp_name" style="color: #1e293b;"></strong></div>
+                    <div style="font-size: 0.9rem; font-weight: 600; color: #0f172a; margin-top: 4px;" id="modal_claim_title"></div>
+                </div>
+
+                <div class="form-group mb-1">
+                    <label class="form-label" for="modal_status">Evaluation Decision <span class="text-danger">*</span></label>
+                    <select id="modal_status" name="status" class="form-control" required>
+                        <option value="APPROVED">APPROVE - Claim Validated & Endorsed</option>
+                        <option value="REJECTED">REJECT - Claim Insufficient / Invalid</option>
+                    </select>
+                </div>
+
+                <div class="form-group mb-1">
+                    <label class="form-label" for="modal_comments">Manager Evaluation Comments</label>
+                    <textarea id="modal_comments" name="comments" class="form-control" rows="3" placeholder="Provide constructive feedback, notes on quality, impact, or reason for decision..."></textarea>
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-between align-center">
+                <button type="button" onclick="closeClaimReviewModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">Submit Evaluation</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openClaimReviewModal(claimId, title, empName) {
+    document.getElementById('modal_claim_id').value = claimId;
+    document.getElementById('modal_claim_title').textContent = title;
+    document.getElementById('modal_emp_name').textContent = empName;
+    const modal = document.getElementById('claimModal');
+    modal.style.display = 'flex';
+}
+
+function closeClaimReviewModal() {
+    const modal = document.getElementById('claimModal');
+    modal.style.display = 'none';
+}
+</script>
+{% endblock %}

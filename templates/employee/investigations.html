@@ -1,179 +1,172 @@
 {% extends "base.html" %}
 
-{% block title %}HR Complaints & Escalations | EAMS{% endblock %}
-{% block page_title %}HR Grievance & Escalation Complaints{% endblock %}
+{% block title %}HR Complaints & Escalations - EAMS{% endblock %}
 
 {% block content %}
-<div class="grid-2col">
-    <!-- Submit Complaint to HR -->
-    <div>
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title">File Complaint to HR</h2>
-            </div>
-            <div class="card-body">
-                <form id="investigationForm" onsubmit="handleInvestigationSubmit(event)">
-                    <div class="form-group">
-                        <label class="form-label" for="invAppraisal">Related Appraisal Cycle (Optional)</label>
-                        <select id="invAppraisal" name="appraisal_id" class="form-control">
-                            <option value="">-- None / General Matter --</option>
-                            {% for app in appraisals %}
-                                <option value="{{ app.appraisal_id }}">
-                                    {{ app.appraisal_period }} (Rating: {{ "%.2f"|format(app.overall_rating) if app.overall_rating else 'Pending' }})
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
+<div class="content-header">
+    <div class="d-flex justify-between align-center flex-wrap gap-1">
+        <div>
+            <h1 class="page-title">HR Grievance & Complaints Portal</h1>
+            <p class="page-subtitle">Submit confidential workplace grievances, rating disputes, and policy escalations directly to HR Administration</p>
+        </div>
+        <div class="d-flex gap-1 align-center">
+            <span class="badge badge-info"><span class="badge-dot dot-cyan"></span> Total Filed: {{ investigations|length }}</span>
+            <span class="badge badge-warning"><span class="badge-dot dot-amber"></span> In Review: {{ investigations|rejectattr('status', 'in', ['RESOLVED', 'CLOSED', 'REJECTED'])|list|length }}</span>
+        </div>
+    </div>
+</div>
 
+<div class="content-body">
+    <!-- SUBMIT HR COMPLAINT CARD -->
+    <div class="card mb-2">
+        <div class="card-header pb-0">
+            <h3 class="card-title" style="font-size: 1.15rem; font-weight: 700; color: #1e293b;">
+                <i class="fas fa-balance-scale" style="color: #6366f1; margin-right: 8px;"></i>
+                File Formal Grievance / Complaint
+            </h3>
+            <p class="text-muted" style="font-size: 0.85rem; margin-top: 4px;">Submissions are encrypted and reviewed independently by the Human Resources Ethics & Compliance Committee.</p>
+        </div>
+        <div class="card-body pt-1">
+            <form method="POST" action="{{ url_for('employee_investigations') }}">
+                <div class="grid grid-3 mb-1">
                     <div class="form-group">
-                        <label class="form-label" for="invAppeal">Related Appeal (Optional)</label>
-                        <select id="invAppeal" name="appeal_id" class="form-control">
-                            <option value="">-- None / Direct Complaint --</option>
-                            {% for item in appeals %}
-                                <option value="{{ item.appeal_id }}">
-                                    Appeal #{{ item.appeal_id }} ({{ item.appraisal_period }} - Status: {{ item.status }})
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label" for="invIssueType">Complaint Type / Reason *</label>
-                        <select id="invIssueType" name="issue_type" class="form-control" required>
-                            <option value="Manager Unfair Evaluation" selected>Manager Unfair Evaluation / Appraisal Bias</option>
-                            <option value="Unfair Appeal Handling">Unfair Appeal Rejection / Improper Process</option>
-                            <option value="Policy Violation">Policy Violation</option>
-                            <option value="Workplace Harassment / Misconduct">Workplace Harassment / Misconduct</option>
+                        <label class="form-label" for="issue_type">Grievance Category <span class="text-danger">*</span></label>
+                        <select id="issue_type" name="issue_type" class="form-control" required>
+                            <option value="Appraisal Rating Dispute / Evaluation Bias" selected>Appraisal Rating Dispute / Evaluation Bias</option>
+                            <option value="Manager Discrimination / Unfair Goal Setting">Manager Discrimination / Unfair Goal Setting</option>
+                            <option value="Unjust Promotion Denial / Blocked Growth">Unjust Promotion Denial / Blocked Growth</option>
+                            <option value="Workplace Harassment / Code of Conduct">Workplace Harassment / Code of Conduct</option>
+                            <option value="Retaliation / Hostile Environment">Retaliation / Hostile Environment</option>
+                            <option value="Compensation & Benefits Discrepancy">Compensation & Benefits Discrepancy</option>
                             <option value="Other Formal Grievance">Other Formal Grievance</option>
                         </select>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label" for="invSubject">Subject Summary *</label>
-                        <input type="text" id="invSubject" name="subject" class="form-control" placeholder="Brief summary of the issue" required>
+                        <label class="form-label" for="priority_level">Severity / Priority <span class="text-danger">*</span></label>
+                        <select id="priority_level" name="priority_level" class="form-control" required>
+                            <option value="Normal">Normal - Standard Review Timeline</option>
+                            <option value="High" selected>High - Impacting Performance / Promotion</option>
+                            <option value="Critical">Critical - Immediate HR Intervention Required</option>
+                        </select>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label" for="invDescription">Detailed Complaint Description *</label>
-                        <textarea id="invDescription" name="description" class="form-control" rows="5" placeholder="Provide a detailed timeline and explanation of the unfair review or dispute..." required></textarea>
+                        <label class="form-label" for="appraisal_id">Related Appraisal Cycle</label>
+                        <select id="appraisal_id" name="appraisal_id" class="form-control">
+                            <option value="">-- General / No Specific Cycle --</option>
+                            {% for app in appraisals %}
+                            <option value="{{ app.appraisal_id }}">
+                                {{ app.appraisal_period }} (Rating: {{ "%.2f"|format(app.overall_rating) if app.overall_rating else 'Pending' }})
+                            </option>
+                            {% endfor %}
+                        </select>
                     </div>
+                </div>
 
-                    <div class="form-group">
-                        <label class="form-label" for="invEvidence">Evidence Details & References</label>
-                        <textarea id="invEvidence" name="evidence_details" class="form-control" rows="2" placeholder="List document IDs, email dates, ticket numbers, or specific deliverable proofs..."></textarea>
-                    </div>
+                <div class="form-group mb-1">
+                    <label class="form-label" for="subject">Summary Subject <span class="text-danger">*</span></label>
+                    <input type="text" id="subject" name="subject" class="form-control" placeholder="e.g. Unfair rating on Q3 Infrastructure Deliverable despite 100% completion" required>
+                </div>
 
-                    <div style="text-align: right; margin-top: 10px;">
-                        <button type="submit" class="btn btn-danger">
-                            Submit Escalation to HR
-                        </button>
+                <div class="form-group mb-1">
+                    <label class="form-label" for="description">Detailed Incident Narrative & Facts <span class="text-danger">*</span></label>
+                    <textarea id="description" name="description" class="form-control" rows="4" placeholder="Detail the events chronologically with specific dates, interactions, and why you believe evaluation was inaccurate or improper..." required></textarea>
+                </div>
+
+                <div class="form-group mb-1">
+                    <label class="form-label" for="evidence_details">Evidence References & Documentation Links</label>
+                    <textarea id="evidence_details" name="evidence_details" class="form-control" rows="2" placeholder="List relevant document IDs, commit hashes, email timestamps, or repository links..."></textarea>
+                </div>
+
+                <div class="d-flex justify-between align-center mt-1">
+                    <div class="text-muted" style="font-size: 0.82rem;">
+                        <i class="fas fa-shield-alt" style="color: #059669;"></i> Protected by Whistleblower & Fair Appraisal Protections
                     </div>
-                </form>
-            </div>
+                    <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);">
+                        <i class="fas fa-paper-plane mr-1"></i> Register Complaint with HR
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <!-- Complaints Filed with HR -->
-    <div>
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">My Escalated Complaints ({{ investigations|length }})</h3>
+    <!-- FILED COMPLAINTS HISTORY -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title" style="font-size: 1.1rem; font-weight: 700; color: #1e293b;">
+                <i class="fas fa-history" style="color: #6366f1; margin-right: 8px;"></i>
+                Registered Complaints & HR Investigation Status
+            </h3>
+        </div>
+        <div class="card-body p-0">
+            {% if investigations %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Complaint ID</th>
+                            <th>Category & Subject</th>
+                            <th>Details & Evidence</th>
+                            <th>Status</th>
+                            <th>HR Ruling & Official Resolution</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inv in investigations %}
+                        <tr>
+                            <td>
+                                <strong style="font-family: monospace; color: #6366f1;">#GRV-{{ inv.investigation_id }}</strong>
+                                <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 2px;">{{ inv.created_at }}</div>
+                            </td>
+                            <td>
+                                <span class="badge" style="background: #f1f5f9; color: #475569; font-size: 0.75rem;">{{ inv.issue_type }}</span>
+                                <div style="font-weight: 600; color: #1e293b; margin-top: 4px;">{{ inv.subject }}</div>
+                            </td>
+                            <td style="max-width: 280px;">
+                                <div style="font-size: 0.82rem; color: #334155; line-height: 1.4;">{{ inv.description }}</div>
+                                {% if inv.evidence_details %}
+                                <div style="font-size: 0.78rem; color: #64748b; margin-top: 4px;"><strong>Evidence:</strong> {{ inv.evidence_details }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if inv.status == 'OPEN' %}
+                                <span class="badge badge-warning"><span class="badge-dot dot-amber"></span> Open / Queued</span>
+                                {% elif inv.status == 'UNDER_INVESTIGATION' %}
+                                <span class="badge badge-info"><span class="badge-dot dot-cyan"></span> Under Investigation</span>
+                                {% elif inv.status in ['RESOLVED', 'RESOLVED_UPHELD', 'UPHELD'] %}
+                                <span class="badge badge-success"><span class="badge-dot dot-emerald"></span> Resolved (Upheld)</span>
+                                {% elif inv.status in ['CLOSED', 'REJECTED', 'RESOLVED_REJECTED'] %}
+                                <span class="badge badge-danger"><span class="badge-dot dot-rose"></span> Closed / Rejected</span>
+                                {% else %}
+                                <span class="badge" style="background: #e2e8f0; color: #334155;">{{ inv.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if inv.authority_response %}
+                                <div style="font-size: 0.85rem; color: #1e293b; font-weight: 500;">{{ inv.authority_response }}</div>
+                                <div style="font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                                    Investigated by: {{ inv.reviewer_name or 'HR Compliance Officer' }}
+                                </div>
+                                {% else %}
+                                <span class="text-muted" style="font-size: 0.8rem;">Investigation ongoing by HR</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-            <div class="card-body">
-                {% if investigations %}
-                    <div class="table-responsive">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Subject & Reason</th>
-                                    <th>Related Details</th>
-                                    <th>Status</th>
-                                    <th>HR Official Ruling / Response</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for inv in investigations %}
-                                    <tr>
-                                        <td>
-                                            <strong>{{ inv.subject }}</strong><br>
-                                            <small style="color: var(--text-muted);">{{ inv.issue_type }}</small>
-                                            <div style="font-size: 0.85rem; margin-top: 4px;">{{ inv.description }}</div>
-                                        </td>
-                                        <td>
-                                            <div style="font-size: 0.82rem;">
-                                                <strong>Cycle:</strong> {{ inv.appraisal_period or 'N/A' }}<br>
-                                                <strong>Manager:</strong> {{ inv.manager_name or 'Direct Manager' }}
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span class="badge badge-{{ inv.status|lower }}">
-                                                {{ inv.status|replace('_', ' ')|upper }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            {% if inv.authority_response %}
-                                                <div style="font-size: 0.88rem; color: var(--text-main);">
-                                                    {{ inv.authority_response }}
-                                                </div>
-                                                <small style="color: var(--text-muted);">Reviewed by: {{ inv.reviewer_name or 'HR Authority' }}</small>
-                                            {% else %}
-                                                <span style="color: var(--text-muted); font-size: 0.85rem;">Under Review by HR</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                {% else %}
-                    <p style="color: var(--text-muted); text-align: center; padding: 20px 0;">No HR complaints or grievance investigations on file.</p>
-                {% endif %}
+            {% else %}
+            <div class="empty-state py-3">
+                <div class="empty-icon" style="background: #f8fafc; color: #94a3b8;">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h4 style="font-weight: 600; color: #1e293b; margin-top: 10px;">No Complaints Filed</h4>
+                <p class="text-muted" style="max-width: 420px; margin: 6px auto;">You have no active or historical grievances registered with HR.</p>
             </div>
+            {% endif %}
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_scripts %}
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const urlParams = new URLSearchParams(window.location.search);
-    const appraisalId = urlParams.get("appraisal_id");
-    const appealId = urlParams.get("appeal_id");
-
-    if (appraisalId) {
-        const selApp = document.getElementById("invAppraisal");
-        if (selApp) selApp.value = appraisalId;
-    }
-    if (appealId) {
-        const selAppeal = document.getElementById("invAppeal");
-        if (selAppeal) selAppeal.value = appealId;
-    }
-});
-
-async function handleInvestigationSubmit(e) {
-    e.preventDefault();
-    const appraisal_id = document.getElementById("invAppraisal").value || null;
-    const appeal_id = document.getElementById("invAppeal").value || null;
-    const issue_type = document.getElementById("invIssueType").value;
-    const subject = document.getElementById("invSubject").value.trim();
-    const description = document.getElementById("invDescription").value.trim();
-    const evidence_details = document.getElementById("invEvidence").value.trim();
-
-    try {
-        const res = await apiRequest("/api/investigations", "POST", {
-            appraisal_id,
-            appeal_id,
-            issue_type,
-            subject,
-            description,
-            evidence_details
-        });
-        showToast(res.message || "Complaint submitted to HR.", "success");
-        setTimeout(() => location.reload(), 1000);
-    } catch (err) {
-        showToast(err.message, "error");
-    }
-}
-</script>
 {% endblock %}

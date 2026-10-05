@@ -30,34 +30,40 @@
                     <a href="{{ url_for('employee_dashboard') }}" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
                         Dashboard
                     </a>
-                    <a href="{{ url_for('employee_profile') }}" class="nav-link {% if active_page == 'profile' %}active{% endif %}">
-                        Profile
+                    <a href="{{ url_for('employee_projects') }}" class="nav-link {% if active_page == 'projects' %}active{% endif %}">
+                        Projects & Tasks
                     </a>
-                    <a href="{{ url_for('employee_documents') }}" class="nav-link {% if active_page == 'documents' %}active{% endif %}">
-                        Documents
+                    <a href="{{ url_for('employee_claims') }}" class="nav-link {% if active_page == 'claims' %}active{% endif %}">
+                        Work Claims
                     </a>
                     <a href="{{ url_for('employee_appraisal') }}" class="nav-link {% if active_page == 'appraisal' %}active{% endif %}">
                         Appraisal
+                    </a>
+                    <a href="{{ url_for('employee_promotions') }}" class="nav-link {% if active_page == 'promotions' %}active{% endif %}">
+                        Promotion Appeal
                     </a>
                     <a href="{{ url_for('employee_appeals') }}" class="nav-link {% if active_page == 'appeals' %}active{% endif %}">
                         Appeals
                     </a>
                     <a href="{{ url_for('employee_investigations') }}" class="nav-link {% if active_page == 'investigations' %}active{% endif %}">
-                        HR Complaint
+                        HR Complaints
                     </a>
-                    <a href="{{ url_for('employee_projects') }}" class="nav-link {% if active_page == 'projects' %}active{% endif %}">
-                        Projects
+                    <a href="{{ url_for('employee_documents') }}" class="nav-link {% if active_page == 'documents' %}active{% endif %}">
+                        Documents
+                    </a>
+                    <a href="{{ url_for('employee_profile') }}" class="nav-link {% if active_page == 'profile' %}active{% endif %}">
+                        Profile
                     </a>
                 {% elif session.get('role') == 'manager' %}
                     <div class="nav-label">Management</div>
                     <a href="{{ url_for('manager_dashboard') }}" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
                         Dashboard
                     </a>
-                    <a href="{{ url_for('manager_profile') }}" class="nav-link {% if active_page == 'profile' %}active{% endif %}">
-                        Profile
+                    <a href="{{ url_for('manager_projects') }}" class="nav-link {% if active_page == 'projects' %}active{% endif %}">
+                        Team & Tasks
                     </a>
-                    <a href="{{ url_for('manager_documents') }}" class="nav-link {% if active_page == 'documents' %}active{% endif %}">
-                        Documents
+                    <a href="{{ url_for('manager_claims') }}" class="nav-link {% if active_page == 'claims' %}active{% endif %}">
+                        Claim Reviews
                     </a>
                     <a href="{{ url_for('manager_appraisals') }}" class="nav-link {% if active_page == 'appraisals' %}active{% endif %}">
                         Appraisal Reviews
@@ -66,21 +72,24 @@
                         Appeal Reviews
                     </a>
                     <a href="{{ url_for('manager_team') }}" class="nav-link {% if active_page == 'team' %}active{% endif %}">
-                        Team
+                        Team Directory
                     </a>
-                    <a href="{{ url_for('manager_projects') }}" class="nav-link {% if active_page == 'projects' %}active{% endif %}">
-                        Projects
+                    <a href="{{ url_for('manager_documents') }}" class="nav-link {% if active_page == 'documents' %}active{% endif %}">
+                        Documents
                     </a>
-                {% elif session.get('role') in ('hr', 'admin') %}
-                    <div class="nav-label">Administration</div>
+                    <a href="{{ url_for('manager_profile') }}" class="nav-link {% if active_page == 'profile' %}active{% endif %}">
+                        Profile
+                    </a>
+                {% elif session.get('role') in ('hr', 'admin') and session.get('role') != 'administrator' %}
+                    <div class="nav-label">HR Administration</div>
                     <a href="{{ url_for('hr_dashboard') }}" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
                         Dashboard
                     </a>
-                    <a href="{{ url_for('hr_profile') }}" class="nav-link {% if active_page == 'profile' %}active{% endif %}">
-                        Profile
-                    </a>
                     <a href="{{ url_for('hr_employees') }}" class="nav-link {% if active_page == 'employees' %}active{% endif %}">
                         Employees
+                    </a>
+                    <a href="{{ url_for('hr_promotions') }}" class="nav-link {% if active_page == 'promotions' %}active{% endif %}">
+                        Promotions
                     </a>
                     <a href="{{ url_for('hr_investigations') }}" class="nav-link {% if active_page == 'investigations' %}active{% endif %}">
                         Investigations
@@ -94,8 +103,22 @@
                     <a href="{{ url_for('hr_audit_logs') }}" class="nav-link {% if active_page == 'audit_logs' %}active{% endif %}">
                         Audit Logs
                     </a>
-                    <a href="{{ url_for('hr_projects') }}" class="nav-link {% if active_page == 'projects' %}active{% endif %}">
-                        Projects
+                    <a href="{{ url_for('hr_profile') }}" class="nav-link {% if active_page == 'profile' %}active{% endif %}">
+                        Profile
+                    </a>
+                {% elif session.get('role') == 'administrator' %}
+                    <div class="nav-label">System Admin</div>
+                    <a href="{{ url_for('administrator_dashboard') }}" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
+                        Dashboard
+                    </a>
+                    <a href="{{ url_for('administrator_projects') }}" class="nav-link {% if active_page == 'projects' %}active{% endif %}">
+                        Projects Overview
+                    </a>
+                    <a href="{{ url_for('administrator_tasks') }}" class="nav-link {% if active_page == 'tasks' %}active{% endif %}">
+                        Task Allocations
+                    </a>
+                    <a href="{{ url_for('administrator_audit_logs') }}" class="nav-link {% if active_page == 'audit_logs' %}active{% endif %}">
+                        Audit Logs
                     </a>
                 {% endif %}
             </nav>

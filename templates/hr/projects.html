@@ -41,7 +41,7 @@
                                 <strong>{{ p.progress }}%</strong>
                             </td>
                             <td><span class="badge badge-under_review">{{ p.priority }}</span></td>
-                            <td>{{ p.due_date.strftime('%Y-%m-%d') if p.due_date else 'N/A' }}</td>
+                            <td>{{ p.due_date if p.due_date else 'N/A' }}</td>
                             <td><span class="badge badge-{{ p.status|lower }}">{{ p.status|replace('_', ' ')|upper }}</span></td>
                         </tr>
                         {% endfor %}
