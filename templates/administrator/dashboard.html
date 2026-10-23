@@ -1,26 +1,354 @@
 {% extends "base.html" %}
 
-{% block title %}Administrator Dashboard | Employee Appraisal Management System{% endblock %}
+{% block title %}Enterprise System Admin | EAMS{% endblock %}
+{% block page_title %}Enterprise System Console{% endblock %}
 
 {% block content %}
-<div class="dashboard-header" style="margin-bottom: 24px;">
-    <h2>System Administration Console</h2>
-    <p style="color: var(--text-muted);">Overview of system users, projects, and security controls.</p>
-</div>
-
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category }}">
-                <span>{{ message }}</span>
-                <button onclick="this.parentElement.remove()" style="background:none; border:none; cursor:pointer; font-size:1.1rem; color:inherit;">&times;</button>
+<!-- Admin Command Hero Banner -->
+<div class="card mb-2" style="background: linear-gradient(135deg, rgba(244, 63, 94, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%); border: 1px solid rgba(244, 63, 94, 0.3);">
+    <div class="card-body p-0">
+        <div class="d-flex justify-between align-center flex-wrap gap-2">
+            <div class="d-flex align-center gap-2">
+                <div class="brand-icon-box" style="width: 48px; height: 48px; font-size: 22px; background: linear-gradient(135deg, #f43f5e, #7c3aed);">
+                    <i class="fas fa-server"></i>
+                </div>
+                <div>
+                    <h2 style="font-size: 1.35rem; font-weight: 800; color: #fff; margin-bottom: 3px;">
+                        Enterprise Administrator Console &bull; Security & Project Oversight
+                    </h2>
+                    <p style="color: var(--text-secondary); font-size: 0.88rem; margin: 0;">
+                        Infrastructure &bull; Centralized project management, task allocations across organizations, and security oversight
+                    </p>
+                </div>
             </div>
-        {% endfor %}
-    {% endif %}
-{% endwith %}
-
-<div class="card" style="padding: 20px; margin-bottom: 20px;">
-    <h3 style="margin-top:0;">Administrator Quick Controls</h3>
-    <p>System Administrator role active. Comprehensive APIs available at <code>/api/administrator/employees</code> and <code>/api/administrator/projects</code>.</p>
+            <div class="d-flex align-center gap-1">
+                <a href="{{ url_for('administrator_projects') }}" class="btn btn-primary">
+                    <i class="fas fa-folder-plus mr-1"></i> New Project
+                </a>
+                <a href="{{ url_for('administrator_tasks') }}" class="btn btn-secondary">
+                    <i class="fas fa-tasks mr-1"></i> Allocate Tasks
+                </a>
+            </div>
+        </div>
+    </div>
 </div>
+
+<!-- High-Tech Metrics Grid -->
+<div class="metrics-grid">
+    <div class="metric-card" style="border-left: 3px solid #3b82f6;">
+        <div class="metric-label"><i class="fas fa-users" style="color: #60a5fa;"></i> Workforce Accounts</div>
+        <div class="metric-value" style="color: #60a5fa;">{{ metrics.total_employees if metrics else employees|length }}</div>
+        <div class="metric-sub"><i class="fas fa-user-check mr-1"></i> Active user profiles</div>
+    </div>
+
+    <div class="metric-card" style="border-left: 3px solid #10b981;">
+        <div class="metric-label"><i class="fas fa-project-diagram" style="color: #34d399;"></i> Corporate Projects</div>
+        <div class="metric-value" style="color: #34d399;">{{ metrics.total_projects if metrics else projects|length }}</div>
+        <div class="metric-sub"><i class="fas fa-bars-progress mr-1"></i> Active deliverables</div>
+    </div>
+
+    <div class="metric-card" style="border-left: 3px solid #8b5cf6;">
+        <div class="metric-label"><i class="fas fa-list-check" style="color: #a78bfa;"></i> Allocated Tasks</div>
+        <div class="metric-value" style="color: #a78bfa;">{{ metrics.total_tasks if metrics else tasks|length }}</div>
+        <div class="metric-sub"><i class="fas fa-check-square mr-1"></i> Individual units of work</div>
+    </div>
+
+    <div class="metric-card" style="border-left: 3px solid #f59e0b;">
+        <div class="metric-label"><i class="fas fa-clipboard-check" style="color: #fbbf24;"></i> Work Claims Filed</div>
+        <div class="metric-value" style="color: #fbbf24;">{{ metrics.total_claims if metrics else claims|length }}</div>
+        <div class="metric-sub"><i class="fas fa-file-invoice mr-1"></i> Off-cycle claims</div>
+    </div>
+</div>
+
+<!-- Visual Data Charts Grid -->
+<div class="grid-equal mb-2">
+    <!-- Chart 1: System Task Execution Distribution -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <i class="fas fa-chart-pie"></i> Task Execution Status Distribution
+            </h2>
+            <span class="badge" style="background: rgba(139, 92, 246, 0.15); color: #a78bfa;">Tasks</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container" style="height: 240px;">
+                <canvas id="adminTaskChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart 2: Corporate Resource Allocations -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <i class="fas fa-chart-column"></i> System Deliverables & Engagement
+            </h2>
+            <span class="badge" style="background: rgba(244, 63, 94, 0.15); color: #fb7185;">Enterprise</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container" style="height: 240px;">
+                <canvas id="adminResourceChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Projects and Tasks Tables -->
+<div class="grid-2 mb-2">
+    <!-- RECENT PROJECTS OVERVIEW -->
+    <div class="card">
+        <div class="card-header d-flex justify-between align-center">
+            <h3 class="card-title">
+                <i class="fas fa-project-diagram"></i> Active Corporate Projects
+            </h3>
+            <a href="{{ url_for('administrator_projects') }}" class="btn btn-sm btn-secondary">View All</a>
+        </div>
+        <div class="card-body p-0">
+            {% if projects %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Project</th>
+                            <th>Lead</th>
+                            <th>Priority</th>
+                            <th>Progress</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in projects[:6] %}
+                        <tr>
+                            <td>
+                                <strong style="color: #fff;">{{ p.name }}</strong>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ p.category or 'General' }}</div>
+                            </td>
+                            <td>
+                                <div style="font-size: 0.85rem; font-weight: 600; color: #fff;">{{ p.employee_name }}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ p.department }}</div>
+                            </td>
+                            <td>
+                                <span class="badge" style="background: rgba(245, 158, 11, 0.12); color: #fbbf24;">{{ p.priority }}</span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-center gap-1">
+                                    <strong style="color: #38bdf8; font-family: var(--font-mono);">{{ p.progress }}%</strong>
+                                    <div class="progress-track" style="width: 70px;">
+                                        <div class="progress-fill" style="width: {{ p.progress }}%;"></div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state py-3" style="text-align: center; padding: 24px;">
+                <p class="text-muted">No corporate projects registered yet.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- RECENT ASSIGNED TASKS -->
+    <div class="card">
+        <div class="card-header d-flex justify-between align-center">
+            <h3 class="card-title">
+                <i class="fas fa-tasks"></i> Recent Task Allocations
+            </h3>
+            <a href="{{ url_for('administrator_tasks') }}" class="btn btn-sm btn-secondary">Manage Tasks</a>
+        </div>
+        <div class="card-body p-0">
+            {% if tasks %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Task Title</th>
+                            <th>Assignee</th>
+                            <th>Status</th>
+                            <th>Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in tasks[:6] %}
+                        <tr>
+                            <td>
+                                <strong style="color: #fff;">{{ t.title }}</strong>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">Project: {{ t.project_name }}</div>
+                            </td>
+                            <td>
+                                <div style="font-size: 0.85rem; font-weight: 600; color: #fff;">{{ t.employee_name }}</div>
+                            </td>
+                            <td>
+                                {% if t.status == 'COMPLETED' %}
+                                <span class="badge badge-approved"><i class="fas fa-check mr-1"></i> Done</span>
+                                {% elif t.status == 'FAILED' %}
+                                <span class="badge badge-rejected"><i class="fas fa-xmark mr-1"></i> Failed</span>
+                                {% elif t.status == 'BLOCKED' %}
+                                <span class="badge badge-pending"><i class="fas fa-ban mr-1"></i> Blocked</span>
+                                {% else %}
+                                <span class="badge badge-under_review"><i class="fas fa-spinner mr-1"></i> {{ t.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if t.manager_rating is not none %}
+                                <strong style="color: #34d399; font-family: var(--font-mono);">{{ "%.2f"|format(t.manager_rating) }}</strong>
+                                {% else %}
+                                <span class="text-muted" style="font-size: 0.8rem;">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state py-3" style="text-align: center; padding: 24px;">
+                <p class="text-muted">No tasks created yet.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- SYSTEM AUDIT LOGS SUMMARY -->
+<div class="card">
+    <div class="card-header d-flex justify-between align-center">
+        <h3 class="card-title">
+            <i class="fas fa-shield-halved"></i> System Security & Event Audit Logs
+        </h3>
+        <a href="{{ url_for('administrator_audit_logs') }}" class="btn btn-sm btn-secondary">
+            <i class="fas fa-stream mr-1"></i> Full Log Stream
+        </a>
+    </div>
+    <div class="card-body p-0">
+        {% if recent_logs %}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>User Account</th>
+                        <th>Action / Event</th>
+                        <th>Entity Reference</th>
+                        <th>IP Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in recent_logs[:8] %}
+                    <tr>
+                        <td style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono);">{{ log.created_at }}</td>
+                        <td><strong style="color: #fff;">{{ log.user_name or 'System' }}</strong></td>
+                        <td><span class="badge" style="background: rgba(99, 102, 241, 0.15); color: var(--primary-light);">{{ log.action }}</span></td>
+                        <td style="font-size: 0.82rem; color: var(--text-secondary);">{{ log.entity_type }} #{{ log.entity_id or '-' }}</td>
+                        <td style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted);">{{ log.ip_address or '127.0.0.1' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state py-3" style="text-align: center; padding: 24px;">
+            <p class="text-muted">No audit logs recorded yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    if (typeof Chart === "undefined") return;
+
+    // Chart 1: Admin Task Status Doughnut
+    const ctxTask = document.getElementById("adminTaskChart");
+    if (ctxTask) {
+        {% set completed_count = tasks|selectattr('status', 'equalto', 'COMPLETED')|list|length if tasks else 0 %}
+        {% set in_progress_count = tasks|selectattr('status', 'equalto', 'IN_PROGRESS')|list|length if tasks else 0 %}
+        {% set blocked_count = tasks|selectattr('status', 'equalto', 'BLOCKED')|list|length if tasks else 0 %}
+        {% set failed_count = tasks|selectattr('status', 'equalto', 'FAILED')|list|length if tasks else 0 %}
+
+        new Chart(ctxTask, {
+            type: "doughnut",
+            data: {
+                labels: ["Completed", "In Progress", "Blocked", "Failed / Other"],
+                datasets: [{
+                    data: [{{ completed_count }} || 1, {{ in_progress_count }} || 1, {{ blocked_count }} || 0.1, {{ failed_count }} || 0.1],
+                    backgroundColor: [
+                        "#10b981",
+                        "#38bdf8",
+                        "#f59e0b",
+                        "#f43f5e"
+                    ],
+                    borderColor: "var(--bg-surface)",
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: "68%",
+                plugins: {
+                    legend: {
+                        position: "right",
+                        labels: { color: "#94a3b8" }
+                    }
+                }
+            }
+        });
+    }
+
+    // Chart 2: Admin Resource Bar Chart
+    const ctxRes = document.getElementById("adminResourceChart");
+    if (ctxRes) {
+        const totalEmp = parseInt('{{ metrics.total_employees if metrics else employees|length }}', 10) || 0;
+        const totalProj = parseInt('{{ metrics.total_projects if metrics else projects|length }}', 10) || 0;
+        const totalTasks = parseInt('{{ metrics.total_tasks if metrics else tasks|length }}', 10) || 0;
+        const totalClaims = parseInt('{{ metrics.total_claims if metrics else claims|length }}', 10) || 0;
+
+        new Chart(ctxRes, {
+            type: "bar",
+            data: {
+                labels: ["Workforce", "Corporate Projects", "Task Deliverables", "Claims"],
+                datasets: [{
+                    label: "Allocation Count",
+                    data: [totalEmp, totalProj, totalTasks, totalClaims],
+                    backgroundColor: [
+                        "rgba(59, 130, 246, 0.65)",
+                        "rgba(16, 185, 129, 0.65)",
+                        "rgba(139, 92, 246, 0.65)",
+                        "rgba(245, 158, 11, 0.65)"
+                    ],
+                    borderColor: [
+                        "#60a5fa",
+                        "#34d399",
+                        "#a78bfa",
+                        "#fbbf24"
+                    ],
+                    borderWidth: 1.5,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: "rgba(255, 255, 255, 0.06)" }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

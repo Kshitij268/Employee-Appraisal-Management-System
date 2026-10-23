@@ -4,10 +4,40 @@
 {% block page_title %}Employee Workspace{% endblock %}
 
 {% block content %}
+<!-- Welcome & Benchmark Hero Banner -->
+<div class="card mb-2" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%); border: 1px solid rgba(99, 102, 241, 0.3);">
+    <div class="card-body p-0">
+        <div class="d-flex justify-between align-center flex-wrap gap-2">
+            <div class="d-flex align-center gap-2">
+                <div class="brand-icon-box" style="width: 48px; height: 48px; font-size: 22px;">
+                    <i class="fas fa-rocket"></i>
+                </div>
+                <div>
+                    <h2 style="font-size: 1.35rem; font-weight: 800; color: #fff; margin-bottom: 3px;">
+                        Welcome back, {{ employee.name or session.get('name', 'Team Member') }}
+                    </h2>
+                    <p style="color: var(--text-secondary); font-size: 0.88rem; margin: 0;">
+                        Role: <strong style="color: var(--primary-light);">{{ employee.designation or 'Software Engineer' }}</strong> &bull; Department: <strong style="color: #38bdf8;">{{ employee.department or 'Engineering' }}</strong> &bull; Code: <strong style="font-family: var(--font-mono); color: #fff;">{{ employee.employee_code or 'EMP' }}</strong>
+                    </p>
+                </div>
+            </div>
+            <div class="d-flex align-center gap-1">
+                <a href="{{ url_for('employee_appraisal') }}" class="btn btn-primary">
+                    <i class="fas fa-award mr-1"></i> My Appraisal
+                </a>
+                <a href="{{ url_for('employee_claims') }}" class="btn btn-secondary">
+                    <i class="fas fa-plus-circle mr-1"></i> Submit Claim
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- High-Impact Animated Metrics Grid -->
 <div class="metrics-grid">
-    <div class="metric-card">
-        <div class="metric-label">Appraisal Status</div>
-        <div class="metric-value" style="font-size: 1.1rem; margin-top: 6px;">
+    <div class="metric-card" style="border-left: 3px solid #6366f1;">
+        <div class="metric-label"><i class="fas fa-calendar-check" style="color: var(--primary-light);"></i> Appraisal Cycle</div>
+        <div class="metric-value" style="font-size: 1.15rem; margin-top: 8px;">
             {% if metrics.appraisal_status %}
                 <span class="badge badge-{{ metrics.appraisal_status|lower }}">
                     {{ metrics.appraisal_status|replace('_', ' ')|upper }}
@@ -16,120 +46,325 @@
                 <span class="badge badge-pending">NOT SUBMITTED</span>
             {% endif %}
         </div>
-        <div class="metric-sub">Active review cycle</div>
+        <div class="metric-sub"><i class="fas fa-clock mr-1"></i> Active review period</div>
     </div>
 
-    <div class="metric-card">
-        <div class="metric-label">Performance Rating</div>
-        <div class="metric-value">
-            {{ "%.2f"|format(metrics.overall_rating) if metrics.overall_rating else ("%.2f"|format(metrics.self_rating) if metrics.self_rating else '-') }}
+    <div class="metric-card" style="border-left: 3px solid #10b981;">
+        <div class="metric-label"><i class="fas fa-star" style="color: #34d399;"></i> Performance Score</div>
+        <div class="metric-value" style="color: #34d399;">
+            {{ "%.2f"|format(metrics.overall_rating) if metrics.overall_rating else ("%.2f"|format(metrics.self_rating) if metrics.self_rating else '—') }}
+            <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-muted);">/ 5.00</span>
         </div>
-        <div class="metric-sub">{{ 'Final Manager Rating' if metrics.overall_rating else ('Self Rating' if metrics.self_rating else 'Unrated') }}</div>
+        <div class="metric-sub">
+            <i class="fas fa-chart-line mr-1"></i> {{ 'Final Manager Score' if metrics.overall_rating else ('Self Appraisal Rating' if metrics.self_rating else 'Cycle Pending') }}
+        </div>
     </div>
 
-    <div class="metric-card">
-        <div class="metric-label">Assigned Projects</div>
-        <div class="metric-value">{{ metrics.total_projects or 0 }}</div>
-        <div class="metric-sub">Active project deliverables</div>
+    <div class="metric-card" style="border-left: 3px solid #06b6d4;">
+        <div class="metric-label"><i class="fas fa-folder-tree" style="color: #38bdf8;"></i> Assigned Projects</div>
+        <div class="metric-value" style="color: #38bdf8;">{{ metrics.total_projects or 0 }}</div>
+        <div class="metric-sub"><i class="fas fa-list-check mr-1"></i> Active deliverables</div>
     </div>
 
-    <div class="metric-card">
-        <div class="metric-label">Documents</div>
-        <div class="metric-value">{{ metrics.total_documents or 0 }}</div>
-        <div class="metric-sub">{{ metrics.pending_documents or 0 }} pending verification</div>
+    <div class="metric-card" style="border-left: 3px solid #8b5cf6;">
+        <div class="metric-label"><i class="fas fa-file-shield" style="color: #a78bfa;"></i> Documents Vault</div>
+        <div class="metric-value" style="color: #a78bfa;">{{ metrics.total_documents or 0 }}</div>
+        <div class="metric-sub"><i class="fas fa-hourglass-half mr-1"></i> {{ metrics.pending_documents or 0 }} pending audit</div>
     </div>
 
-    <div class="metric-card">
-        <div class="metric-label">Appeals Filed</div>
-        <div class="metric-value">{{ metrics.total_appeals or 0 }}</div>
-        <div class="metric-sub">Status: {{ metrics.latest_appeal_status|upper if metrics.latest_appeal_status else 'None' }}</div>
+    <div class="metric-card" style="border-left: 3px solid #f59e0b;">
+        <div class="metric-label"><i class="fas fa-scale-balanced" style="color: #fbbf24;"></i> Rating Appeals</div>
+        <div class="metric-value" style="color: #fbbf24;">{{ metrics.total_appeals or 0 }}</div>
+        <div class="metric-sub"><i class="fas fa-info-circle mr-1"></i> {{ metrics.latest_appeal_status|upper if metrics.latest_appeal_status else 'None filed' }}</div>
     </div>
 
-    <div class="metric-card">
-        <div class="metric-label">HR Complaints</div>
-        <div class="metric-value">{{ metrics.total_investigations or 0 }}</div>
-        <div class="metric-sub">Status: {{ metrics.latest_investigation_status|replace('_', ' ')|upper if metrics.latest_investigation_status else 'None' }}</div>
+    <div class="metric-card" style="border-left: 3px solid #f43f5e;">
+        <div class="metric-label"><i class="fas fa-bullhorn" style="color: #fb7185;"></i> HR Grievances</div>
+        <div class="metric-value" style="color: #fb7185;">{{ metrics.total_investigations or 0 }}</div>
+        <div class="metric-sub"><i class="fas fa-user-shield mr-1"></i> {{ metrics.latest_investigation_status|replace('_', ' ')|upper if metrics.latest_investigation_status else 'No complaints' }}</div>
+    </div>
+</div>
+
+<!-- Visual Charts Section -->
+<div class="grid-equal mb-2">
+    <!-- Chart 1: Performance Evaluation Comparison -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <i class="fas fa-chart-radar"></i> Appraisal Calibration Analytics
+            </h2>
+            <span class="badge" style="background: rgba(99, 102, 241, 0.15); color: var(--primary-light);">FY2026</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container" style="height: 250px;">
+                <canvas id="employeeScoreChart"></canvas>
+            </div>
+            <div class="d-flex justify-between align-center" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.85rem; color: var(--text-secondary);">
+                <span><i class="fas fa-circle" style="color: #818cf8; font-size: 9px;"></i> Self Score: <strong>{{ "%.2f"|format(metrics.self_rating) if metrics.self_rating else '0.00' }}</strong></span>
+                <span><i class="fas fa-circle" style="color: #34d399; font-size: 9px;"></i> Manager Score: <strong>{{ "%.2f"|format(metrics.overall_rating) if metrics.overall_rating else '0.00' }}</strong></span>
+                <span><i class="fas fa-circle" style="color: #f59e0b; font-size: 9px;"></i> Target Benchmark: <strong>4.60</strong></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart 2: Deliverables & Status Breakdown -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <i class="fas fa-chart-pie"></i> Deliverables & Portfolio Distribution
+            </h2>
+            <span class="badge" style="background: rgba(6, 182, 212, 0.15); color: #38bdf8;">Real-time</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container" style="height: 250px;">
+                <canvas id="employeePortfolioChart"></canvas>
+            </div>
+            <div class="d-flex justify-between align-center" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.85rem; color: var(--text-secondary);">
+                <span>Projects: <strong>{{ metrics.total_projects or 0 }}</strong></span>
+                <span>Docs: <strong>{{ metrics.total_documents or 0 }}</strong></span>
+                <span>Appeals: <strong>{{ metrics.total_appeals or 0 }}</strong></span>
+                <span>Complaints: <strong>{{ metrics.total_investigations or 0 }}</strong></span>
+            </div>
+        </div>
     </div>
 </div>
 
 <div class="grid-2col">
-    <!-- Active Appraisal Overview -->
+    <!-- Active Appraisal Summary Card -->
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">Active Appraisal Summary</h2>
-            <a href="{{ url_for('employee_appraisal') }}" class="btn btn-primary btn-sm">Open Appraisal</a>
+            <h2 class="card-title">
+                <i class="fas fa-clipboard-check"></i> Active Appraisal Cycle Summary
+            </h2>
+            <a href="{{ url_for('employee_appraisal') }}" class="btn btn-primary btn-sm">
+                <i class="fas fa-arrow-up-right-from-square mr-1"></i> Open File
+            </a>
         </div>
         <div class="card-body">
             {% if active_appraisal %}
-                <table class="table" style="margin-bottom: 0;">
-                    <tbody>
-                        <tr>
-                            <th style="width: 35%;">Cycle</th>
-                            <td><strong>{{ active_appraisal.appraisal_period }}</strong></td>
-                        </tr>
-                        <tr>
-                            <th>Status</th>
-                            <td>
-                                <span class="badge badge-{{ active_appraisal.status|lower }}">
-                                    {{ active_appraisal.status|replace('_', ' ')|upper }}
-                                </span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>Self Rating</th>
-                            <td>{{ "%.2f"|format(active_appraisal.self_rating) if active_appraisal.self_rating else 'N/A' }} / 5.00</td>
-                        </tr>
-                        <tr>
-                            <th>Manager Rating</th>
-                            <td>{{ "%.2f"|format(active_appraisal.overall_rating) if active_appraisal.overall_rating else 'Pending Review' }}</td>
-                        </tr>
-                        <tr>
-                            <th>Manager Feedback</th>
-                            <td>{{ active_appraisal.manager_comments or 'Awaiting review' }}</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="table-responsive">
+                    <table class="table" style="margin-bottom: 0;">
+                        <tbody>
+                            <tr>
+                                <th style="width: 35%;">Cycle Period</th>
+                                <td><strong style="color: var(--primary-light); font-family: var(--font-mono);">{{ active_appraisal.appraisal_period }}</strong></td>
+                            </tr>
+                            <tr>
+                                <th>Workflow State</th>
+                                <td>
+                                    <span class="badge badge-{{ active_appraisal.status|lower }}">
+                                        {{ active_appraisal.status|replace('_', ' ')|upper }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Self Evaluation Score</th>
+                                <td>
+                                    <strong style="color: #fff;">{{ "%.2f"|format(active_appraisal.self_rating) if active_appraisal.self_rating else 'N/A' }}</strong> / 5.00
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Management Score</th>
+                                <td>
+                                    {% if active_appraisal.overall_rating %}
+                                        <strong style="color: #34d399;">{{ "%.2f"|format(active_appraisal.overall_rating) }} / 5.00</strong>
+                                    {% else %}
+                                        <span class="badge badge-pending">PENDING MANAGER REVIEW</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Manager Remarks</th>
+                                <td>
+                                    <span style="color: var(--text-secondary); font-style: italic;">
+                                        {{ active_appraisal.manager_comments or 'Awaiting formal manager evaluation review.' }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Animated Progress Indicator -->
+                <div style="margin-top: 20px; padding: 14px 16px; background: rgba(255,255,255,0.025); border-radius: var(--radius-md); border: 1px solid var(--border);">
+                    <div class="d-flex justify-between align-center mb-1">
+                        <span style="font-size: 11.5px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">Cycle Completion Lifecycle</span>
+                        <span style="font-size: 12px; font-weight: 800; color: var(--primary-light); font-family: var(--font-mono);">
+                            {% if active_appraisal.status == 'approved' or active_appraisal.status == 'completed' %}100%
+                            {% elif active_appraisal.status == 'under_review' %}75%
+                            {% elif active_appraisal.status == 'submitted' %}50%
+                            {% else %}25%{% endif %}
+                        </span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill {% if active_appraisal.status in ('approved', 'completed') %}emerald{% endif %}"
+                             style="width: {% if active_appraisal.status in ('approved', 'completed') %}100%{% elif active_appraisal.status == 'under_review' %}75%{% elif active_appraisal.status == 'submitted' %}50%{% else %}25%{% endif %};">
+                        </div>
+                    </div>
+                </div>
             {% else %}
-                <p style="color: var(--text-muted); padding: 10px 0;">No active appraisal submitted. Click the button above to begin your self-appraisal.</p>
+                <div style="padding: 30px 10px; text-align: center;">
+                    <i class="fas fa-file-circle-plus" style="font-size: 36px; color: var(--text-muted); margin-bottom: 12px;"></i>
+                    <p style="color: var(--text-secondary); margin-bottom: 16px;">No active appraisal cycle record found for this period.</p>
+                    <a href="{{ url_for('employee_appraisal') }}" class="btn btn-primary">
+                        <i class="fas fa-plus mr-1"></i> Initiate Self Appraisal
+                    </a>
+                </div>
             {% endif %}
         </div>
     </div>
 
-    <!-- Quick Navigation & Recent Activity -->
+    <!-- Quick Navigation & Audit Feed -->
     <div>
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title">Quick Actions</h3>
+                <h3 class="card-title">
+                    <i class="fas fa-bolt"></i> Workspace Shortcuts
+                </h3>
             </div>
-            <div class="card-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                <a href="{{ url_for('employee_appraisal') }}" class="btn btn-secondary">My Appraisal</a>
-                <a href="{{ url_for('employee_documents') }}" class="btn btn-secondary">Upload Documents</a>
-                <a href="{{ url_for('employee_appeals') }}" class="btn btn-secondary">File an Appeal</a>
-                <a href="{{ url_for('employee_investigations') }}" class="btn btn-secondary">HR Complaint</a>
-                <a href="{{ url_for('employee_projects') }}" class="btn btn-secondary">My Projects</a>
-                <a href="{{ url_for('employee_profile') }}" class="btn btn-secondary">Edit Profile</a>
+            <div class="card-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <a href="{{ url_for('employee_appraisal') }}" class="btn btn-secondary" style="justify-content: flex-start;">
+                    <i class="fas fa-award mr-1" style="color: var(--primary-light);"></i> My Appraisal
+                </a>
+                <a href="{{ url_for('employee_projects') }}" class="btn btn-secondary" style="justify-content: flex-start;">
+                    <i class="fas fa-folder-tree mr-1" style="color: #38bdf8;"></i> My Projects
+                </a>
+                <a href="{{ url_for('employee_claims') }}" class="btn btn-secondary" style="justify-content: flex-start;">
+                    <i class="fas fa-receipt mr-1" style="color: #34d399;"></i> Work Claims
+                </a>
+                <a href="{{ url_for('employee_promotions') }}" class="btn btn-secondary" style="justify-content: flex-start;">
+                    <i class="fas fa-stairs mr-1" style="color: #fbbf24;"></i> Promotions
+                </a>
+                <a href="{{ url_for('employee_documents') }}" class="btn btn-secondary" style="justify-content: flex-start;">
+                    <i class="fas fa-file-shield mr-1" style="color: #a78bfa;"></i> Vault Docs
+                </a>
+                <a href="{{ url_for('employee_profile') }}" class="btn btn-secondary" style="justify-content: flex-start;">
+                    <i class="fas fa-user-gear mr-1" style="color: #fb7185;"></i> Profile
+                </a>
             </div>
         </div>
 
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title">Recent Activity Log</h3>
+                <h3 class="card-title">
+                    <i class="fas fa-clock-rotate-left"></i> Security & Activity Stream
+                </h3>
             </div>
             <div class="card-body">
                 {% if recent_logs %}
-                    <ul style="list-style: none; padding: 0; font-size: 0.85rem;">
-                        {% for log in recent_logs %}
-                            <li style="padding: 6px 0; border-bottom: 1px solid var(--border);">
-                                <span style="font-weight: 600;">{{ log.action }}</span> — {{ log.description }}
-                                <div style="font-size: 0.75rem; color: var(--text-muted);">{{ log.created_at.strftime('%Y-%m-%d %H:%M') if log.created_at else '' }}</div>
+                    <ul style="list-style: none; padding: 0; font-size: 0.85rem; display: flex; flex-direction: column; gap: 10px;">
+                        {% for log in recent_logs[:5] %}
+                            <li style="padding: 10px 12px; background: rgba(255,255,255,0.02); border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; align-items: flex-start; gap: 10px;">
+                                <i class="fas fa-shield" style="color: var(--primary-light); margin-top: 3px;"></i>
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="font-weight: 700; color: #fff;">{{ log.action }}</div>
+                                    <div style="color: var(--text-secondary); font-size: 0.8rem; overflow-wrap: break-word;">{{ log.description }}</div>
+                                    <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px;">{{ log.created_at if log.created_at else '' }}</div>
+                                </div>
                             </li>
                         {% endfor %}
                     </ul>
                 {% else %}
-                    <p style="color: var(--text-muted); font-size: 0.85rem;">No recent audit activity.</p>
+                    <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 14px 0;">No recent audit activity records found.</p>
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    if (typeof Chart === "undefined") return;
+
+    // Chart 1: Appraisal Calibration Radar/Bar Chart
+    const ctxScore = document.getElementById("employeeScoreChart");
+    if (ctxScore) {
+        const selfRating = parseFloat('{{ metrics.self_rating or 0 }}') || 0;
+        const managerRating = parseFloat('{{ metrics.overall_rating or 0 }}') || 0;
+        const benchmark = 4.60;
+
+        new Chart(ctxScore, {
+            type: "bar",
+            data: {
+                labels: ["Self Rating", "Manager Rating", "Promo Benchmark", "Org Target"],
+                datasets: [{
+                    label: "Performance Points (Out of 5.00)",
+                    data: [selfRating, managerRating, benchmark, 5.00],
+                    backgroundColor: [
+                        "rgba(99, 102, 241, 0.65)",
+                        "rgba(16, 185, 129, 0.65)",
+                        "rgba(245, 158, 11, 0.65)",
+                        "rgba(6, 182, 212, 0.45)"
+                    ],
+                    borderColor: [
+                        "#818cf8",
+                        "#34d399",
+                        "#fbbf24",
+                        "#38bdf8"
+                    ],
+                    borderWidth: 1.5,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 5,
+                        grid: { color: "rgba(255, 255, 255, 0.06)" }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+
+    // Chart 2: Portfolio Doughnut Chart
+    const ctxPort = document.getElementById("employeePortfolioChart");
+    if (ctxPort) {
+        const projects = parseInt('{{ metrics.total_projects or 1 }}', 10);
+        const docs = parseInt('{{ metrics.total_documents or 1 }}', 10);
+        const appeals = parseInt('{{ metrics.total_appeals or 0 }}', 10);
+        const investigations = parseInt('{{ metrics.total_investigations or 0 }}', 10);
+
+        new Chart(ctxPort, {
+            type: "doughnut",
+            data: {
+                labels: ["Projects", "Documents", "Appeals", "HR Complaints"],
+                datasets: [{
+                    data: [projects, docs, appeals || 0.1, investigations || 0.1],
+                    backgroundColor: [
+                        "#6366f1",
+                        "#06b6d4",
+                        "#f59e0b",
+                        "#f43f5e"
+                    ],
+                    borderColor: "var(--bg-surface)",
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: "68%",
+                plugins: {
+                    legend: {
+                        position: "right",
+                        labels: { color: "#94a3b8" }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

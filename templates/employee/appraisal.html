@@ -20,19 +20,20 @@
             </div>
             <div class="card-body">
                 {% if active_appraisal %}
+                    <div style="margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                        <span class="badge badge-info" style="font-size: 0.82rem; padding: 5px 12px;">
+                            <i class="fas fa-layer-group mr-1"></i> {{ active_appraisal.appraisal_type or 'Annual Performance Review' }}
+                        </span>
+                        <span class="badge badge-{{ active_appraisal.status|lower }}">
+                            {{ active_appraisal.status|replace('_', ' ')|upper }}
+                        </span>
+                    </div>
+
                     <table class="table" style="margin-bottom: 16px;">
                         <tbody>
                             <tr>
                                 <th style="width: 40%;">Appraisal Period</th>
                                 <td><strong>{{ active_appraisal.appraisal_period }}</strong></td>
-                            </tr>
-                            <tr>
-                                <th>Submission Status</th>
-                                <td>
-                                    <span class="badge badge-{{ active_appraisal.status|lower }}">
-                                        {{ active_appraisal.status|replace('_', ' ')|upper }}
-                                    </span>
-                                </td>
                             </tr>
                             <tr>
                                 <th>Self Rating</th>
@@ -42,7 +43,7 @@
                                 <th>Manager Rating</th>
                                 <td>
                                     {% if active_appraisal.overall_rating %}
-                                        <strong>{{ "%.2f"|format(active_appraisal.overall_rating) }}</strong> / 5.00
+                                        <strong style="color: #34d399;">{{ "%.2f"|format(active_appraisal.overall_rating) }}</strong> / 5.00
                                     {% else %}
                                         <span style="color: var(--text-muted);">Pending Manager Review</span>
                                     {% endif %}
@@ -59,17 +60,35 @@
                         </tbody>
                     </table>
 
+                    {% if active_appraisal.key_achievements %}
                     <div style="margin-bottom: 14px;">
-                        <div class="form-label">Employee Self-Comments:</div>
-                        <div style="background-color: var(--bg-subtle); border: 1px solid var(--border); padding: 8px 12px; font-size: 0.9rem;">
+                        <div class="form-label" style="color: #34d399;"><i class="fas fa-trophy mr-1"></i> Key Achievements & Highlights:</div>
+                        <div style="background-color: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); padding: 10px 14px; font-size: 0.9rem; border-radius: 8px; color: #e2e8f0;">
+                            {{ active_appraisal.key_achievements }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div style="margin-bottom: 14px;">
+                        <div class="form-label"><i class="fas fa-comment mr-1"></i> Employee Self-Comments:</div>
+                        <div style="background-color: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); padding: 10px 14px; font-size: 0.9rem; border-radius: 8px; color: #cbd5e1;">
                             {{ active_appraisal.employee_comments or 'No comments entered.' }}
                         </div>
                     </div>
 
+                    {% if active_appraisal.improvement_areas %}
+                    <div style="margin-bottom: 14px;">
+                        <div class="form-label" style="color: var(--accent-cyan);"><i class="fas fa-seedling mr-1"></i> Growth Areas & Learning Goals:</div>
+                        <div style="background-color: rgba(6, 182, 212, 0.05); border: 1px solid rgba(6, 182, 212, 0.2); padding: 10px 14px; font-size: 0.9rem; border-radius: 8px; color: #e2e8f0;">
+                            {{ active_appraisal.improvement_areas }}
+                        </div>
+                    </div>
+                    {% endif %}
+
                     {% if active_appraisal.manager_comments %}
                         <div style="margin-bottom: 14px;">
-                            <div class="form-label">Manager Review Feedback:</div>
-                            <div style="background-color: var(--bg-subtle); border: 1px solid var(--border); padding: 8px 12px; font-size: 0.9rem;">
+                            <div class="form-label" style="color: #fbbf24;"><i class="fas fa-user-check mr-1"></i> Manager Review Feedback:</div>
+                            <div style="background-color: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.2); padding: 10px 14px; font-size: 0.9rem; border-radius: 8px; color: #f8fafc;">
                                 {{ active_appraisal.manager_comments }}
                             </div>
                         </div>
@@ -79,12 +98,12 @@
                     <div style="margin-top: 16px; display: flex; gap: 8px;">
                         {% if active_appraisal.status in ('REJECTED', 'rejected', 'CHANGES_REQUESTED', 'changes_requested', 'APPROVED', 'approved') %}
                             <a href="{{ url_for('employee_appeals') }}?appraisal_id={{ active_appraisal.appraisal_id }}" class="btn btn-warning">
-                                Submit Appeal / Reconsideration
+                                <i class="fas fa-scale-unbalanced mr-1"></i> Submit Appeal / Reconsideration
                             </a>
                         {% endif %}
                     </div>
                 {% else %}
-                    <p style="color: var(--text-muted); padding: 10px 0;">You have not submitted an appraisal for the current cycle yet. Please fill out the self-appraisal form.</p>
+                    <p style="color: var(--text-muted); padding: 10px 0;">You have not submitted an appraisal for the current cycle yet. Please select an appraisal type and submit your self-assessment below.</p>
                 {% endif %}
             </div>
         </div>
@@ -94,10 +113,23 @@
     <div>
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title">Submit Self-Appraisal</h3>
+                <h3 class="card-title"><i class="fas fa-file-pen mr-1"></i> Submit Self-Appraisal</h3>
             </div>
             <div class="card-body">
                 <form id="appraisalForm" onsubmit="handleAppraisalSubmit(event)">
+                    
+                    <div class="form-group mb-1">
+                        <label class="form-label" for="appraisalType">Appraisal Evaluation Type *</label>
+                        <select id="appraisalType" name="appraisal_type" class="form-control" required>
+                            <option value="Annual Performance Review" selected>Annual Performance Review (Comprehensive 360°)</option>
+                            <option value="Mid-Year Performance Check-in">Mid-Year Performance Check-in</option>
+                            <option value="Quarterly Milestone Assessment">Quarterly Milestone Assessment (Q1/Q2/Q3/Q4)</option>
+                            <option value="Probation Completion Evaluation">Probation Completion Evaluation</option>
+                            <option value="Special Promotion Assessment">Special Promotion & Elevation Assessment</option>
+                            <option value="Project Impact & Delivery Review">Project Impact & Delivery Review</option>
+                        </select>
+                    </div>
+
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label" for="appraisalPeriod">Appraisal Period *</label>
@@ -108,34 +140,44 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="selfRating">Self Performance Rating (1.00 - 5.00) *</label>
+                            <label class="form-label" for="selfRating">Self Rating (1.00 - 5.00) *</label>
                             <input type="number" id="selfRating" name="self_rating" class="form-control" step="0.1" min="1.0" max="5.0" placeholder="e.g. 4.50" required>
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label class="form-label" for="managerSelect">Manager *</label>
+                            <label class="form-label" for="managerSelect">Reviewing Manager *</label>
                             <select id="managerSelect" name="manager_id" class="form-control" required>
                                 <option value="">-- Select Manager --</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="hrSelect">HR *</label>
+                            <label class="form-label" for="hrSelect">Assigned HR *</label>
                             <select id="hrSelect" name="hr_id" class="form-control" required>
                                 <option value="">-- Select HR --</option>
                             </select>
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label" for="employeeComments">Key Achievements & Self Assessment Comments *</label>
-                        <textarea id="employeeComments" name="employee_comments" class="form-control" rows="5" placeholder="Detail your deliverables, goals met, project outcomes, and key accomplishments for this cycle..." required></textarea>
+                    <div class="form-group mb-1">
+                        <label class="form-label" for="keyAchievements">Key Achievements & Impact Deliverables *</label>
+                        <textarea id="keyAchievements" name="key_achievements" class="form-control" rows="3" placeholder="Highlight critical milestones achieved, projects shipped, optimization metrics, and team impact..." required></textarea>
                     </div>
 
-                    <div style="text-align: right; margin-top: 10px;">
-                        <button type="submit" class="btn btn-primary">
-                            Submit Self-Appraisal
+                    <div class="form-group mb-1">
+                        <label class="form-label" for="employeeComments">Self Assessment Narrative & Observations *</label>
+                        <textarea id="employeeComments" name="employee_comments" class="form-control" rows="3" placeholder="Provide qualitative insights on your performance, technical challenges overcome, and accountability..." required></textarea>
+                    </div>
+
+                    <div class="form-group mb-1">
+                        <label class="form-label" for="improvementAreas">Growth Areas, Training & Upskilling Goals</label>
+                        <textarea id="improvementAreas" name="improvement_areas" class="form-control" rows="2" placeholder="List competencies you wish to develop, certifications, or leadership responsibilities for upcoming cycles..."></textarea>
+                    </div>
+
+                    <div style="text-align: right; margin-top: 14px;">
+                        <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);">
+                            <i class="fas fa-paper-plane mr-1"></i> Submit Performance Appraisal
                         </button>
                     </div>
                 </form>
@@ -145,14 +187,14 @@
         <!-- Past Appraisals Table -->
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title">Appraisal History</h3>
+                <h3 class="card-title"><i class="fas fa-clock-rotate-left mr-1"></i> Appraisal Cycle History</h3>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
                     <table class="table">
                         <thead>
                             <tr>
-                                <th>Cycle</th>
+                                <th>Cycle & Type</th>
                                 <th>Self Rating</th>
                                 <th>Manager Rating</th>
                                 <th>Status</th>
@@ -162,7 +204,10 @@
                             {% if history or active_appraisal %}
                                 {% if active_appraisal %}
                                     <tr>
-                                        <td><strong>{{ active_appraisal.appraisal_period }}</strong> (Active)</td>
+                                        <td>
+                                            <strong>{{ active_appraisal.appraisal_period }}</strong> (Active)<br>
+                                            <span class="badge badge-info" style="font-size: 0.72rem;">{{ active_appraisal.appraisal_type or 'Annual Review' }}</span>
+                                        </td>
                                         <td>{{ "%.2f"|format(active_appraisal.self_rating) if active_appraisal.self_rating else '-' }}</td>
                                         <td>{{ "%.2f"|format(active_appraisal.overall_rating) if active_appraisal.overall_rating else '-' }}</td>
                                         <td>
@@ -174,7 +219,10 @@
                                 {% endif %}
                                 {% for app in history %}
                                     <tr>
-                                        <td><strong>{{ app.appraisal_period }}</strong></td>
+                                        <td>
+                                            <strong>{{ app.appraisal_period }}</strong><br>
+                                            <span class="badge badge-info" style="font-size: 0.72rem;">{{ app.appraisal_type or 'Annual Review' }}</span>
+                                        </td>
                                         <td>{{ "%.2f"|format(app.self_rating) if app.self_rating else '-' }}</td>
                                         <td>{{ "%.2f"|format(app.overall_rating) if app.overall_rating else '-' }}</td>
                                         <td>
@@ -202,19 +250,25 @@
 <script>
 async function handleAppraisalSubmit(e) {
     e.preventDefault();
+    const appraisal_type = document.getElementById("appraisalType").value;
     const period = document.getElementById("appraisalPeriod").value;
     const self_rating = document.getElementById("selfRating").value;
+    const key_achievements = document.getElementById("keyAchievements").value.trim();
     const employee_comments = document.getElementById("employeeComments").value.trim();
+    const improvement_areas = document.getElementById("improvementAreas").value.trim();
     const manager_id = document.getElementById("managerSelect").value;
     const hr_id = document.getElementById("hrSelect").value;
 
     try {
         const res = await apiRequest("/api/appraisals", "POST", {
+            appraisal_type,
             appraisal_period: period,
             manager_id,
             hr_id,
             self_rating: self_rating,
-            employee_comments: employee_comments
+            key_achievements,
+            employee_comments,
+            improvement_areas
         });
         showToast(res.message || "Appraisal submitted successfully.", "success");
         setTimeout(() => location.reload(), 1000);

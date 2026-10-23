@@ -62,11 +62,11 @@
                                 {% for doc in documents %}
                                     <tr>
                                         <td>
-                                            <a href="{{ url_for('static', filename=doc.document_path) }}" target="_blank">
+                                            <a href="{{ url_for('download_document', document_id=doc.document_id) }}" target="_blank">
                                                 <strong>{{ doc.document_name }}</strong>
                                             </a>
                                             <div style="font-size: 0.78rem; color: var(--text-muted);">
-                                                Submitted: {{ doc.submitted_at.strftime('%Y-%m-%d') if doc.submitted_at else 'N/A' }}
+                                                Submitted: {{ doc.submitted_at if doc.submitted_at else 'N/A' }}
                                             </div>
                                         </td>
                                         <td>{{ doc.document_type }}</td>

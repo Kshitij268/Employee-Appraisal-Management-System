@@ -31,12 +31,12 @@
                                     <small style="color: var(--text-muted);">{{ doc.employee_code }} • {{ doc.department }}</small>
                                 </td>
                                 <td>
-                                    <a href="{{ url_for('static', filename=doc.document_path) }}" target="_blank">
+                                    <a href="{{ url_for('download_document', document_id=doc.document_id) }}" target="_blank">
                                         <strong>{{ doc.document_name }}</strong>
                                     </a>
                                 </td>
                                 <td>{{ doc.document_type }}</td>
-                                <td>{{ doc.submitted_at.strftime('%Y-%m-%d') if doc.submitted_at else 'N/A' }}</td>
+                                <td>{{ doc.submitted_at if doc.submitted_at else 'N/A' }}</td>
                                 <td>
                                     <span class="badge badge-{{ doc.status|lower }}">
                                         {{ doc.status|upper }}

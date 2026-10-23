@@ -7,10 +7,8 @@ import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from config import Config
+from config import Config, load_dotenv
 
-
-from dotenv import load_dotenv
 
 def get_smtp_config():
     """Dynamically load and return current SMTP configurations from .env/Config."""

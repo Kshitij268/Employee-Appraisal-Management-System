@@ -1,67 +1,162 @@
 {% extends "base.html" %}
 
-{% block title %}Sign In | Employee Appraisal Management System{% endblock %}
+{% block title %}Sign In | EAMS Enterprise Portal{% endblock %}
 
 {% block auth_content %}
-<div class="auth-page-wrapper">
-    <div class="auth-card">
-        <div class="auth-header">
-            <h1 class="auth-title">Employee Appraisal Portal</h1>
-            <p class="auth-subtitle">Sign in to your account</p>
+<div class="login-container">
+  <div class="login-inner">
+
+    <!-- =====================================================
+         LEFT — High-tech Enterprise Visual Showcase
+         ===================================================== -->
+    <div class="login-left">
+      <div class="login-left-badge">
+        <i class="fas fa-layer-group" style="color: var(--primary-light);"></i>
+        <span class="login-left-badge-text">EAMS</span>
+        <span class="login-left-badge-sub">Enterprise Suite</span>
+      </div>
+
+      <h1 class="login-left-headline">People.<br>Performance.<br>Progress.</h1>
+      <div class="login-left-divider"></div>
+      
+      <p class="login-left-tagline">
+        Next-generation employee appraisal management, calibrated promotions, and merit-driven organizational growth.
+      </p>
+
+      <img
+        class="login-left-img"
+        src="{{ url_for('static', filename='images/eams-illus.jpg') }}"
+        alt="EAMS workplace intelligence"
+      >
+
+      <div class="login-left-footer">
+        <span class="login-left-footer-item"><i class="fas fa-users-gear mr-1"></i> Employees</span>
+        <span class="login-left-footer-sep">/</span>
+        <span class="login-left-footer-item"><i class="fas fa-chart-line mr-1"></i> Performance</span>
+        <span class="login-left-footer-sep">/</span>
+        <span class="login-left-footer-item"><i class="fas fa-award mr-1"></i> Appraisals</span>
+        <span class="login-left-footer-sep">/</span>
+        <span class="login-left-footer-item"><i class="fas fa-shield-halved mr-1"></i> Security</span>
+      </div>
+    </div>
+
+    <!-- =====================================================
+         RIGHT — Cyber-Obsidian Black Login Form Card
+         ===================================================== -->
+    <div class="login-right">
+      <div class="login-form-wrapper">
+
+        <!-- Brand Block -->
+        <div class="login-brand-block">
+          <div class="d-flex align-center gap-1 mb-1">
+            <div class="brand-icon-box" style="width: 32px; height: 32px; font-size: 14px;">
+              <i class="fas fa-layer-group"></i>
+            </div>
+            <div>
+              <p class="login-brand-title" style="font-size: 22px; margin: 0;">EAMS</p>
+            </div>
+          </div>
+          <p class="login-brand-sub">Employee Appraisal Management System</p>
+          <div class="login-brand-rule"></div>
         </div>
 
+        <!-- Heading -->
+        <div class="login-header">
+          <h2 class="login-title">Welcome Back</h2>
+          <p class="login-subtitle">Sign in to your authorized workspace account</p>
+        </div>
+
+        <!-- Flash messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">
-                        <span>{{ message }}</span>
-                        <button onclick="this.parentElement.remove()" style="background:none;
-                        border:none;
-                        cursor:pointer;
-                        font-size:1.1rem;
-                        color:inherit;
-                        ">&times;</button>
-                    </div>
-                {% endfor %}
-            {% endif %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">
+                <div class="alert-content">
+                  <i class="fas {% if category == 'success' %}fa-circle-check{% elif category == 'danger' %}fa-triangle-exclamation{% elif category == 'warning' %}fa-circle-exclamation{% else %}fa-circle-info{% endif %}"></i>
+                  <span>{{ message }}</span>
+                </div>
+                <button onclick="this.parentElement.remove()" class="alert-close">&times;</button>
+              </div>
+            {% endfor %}
+          {% endif %}
         {% endwith %}
 
-        <form method="POST" action="{{ url_for('login') }}">
-            <div class="form-group">
-                <label class="form-label" for="loginEmail">Email Address</label>
-                <input type="email" id="loginEmail" name="email" class="form-control" placeholder="user@example.com" required autofocus>
+        <!-- Login Form -->
+        <form method="POST" action="{{ url_for('login') }}" class="login-form">
+          <div class="form-group">
+            <label class="form-label" for="loginEmail">Company Email</label>
+            <div class="input-icon-wrap">
+              <i class="fas fa-envelope input-icon"></i>
+              <input type="email" id="loginEmail" name="email" class="form-control"
+                     placeholder="name@company.com" required autofocus>
             </div>
+          </div>
 
-            <div class="form-group">
-                <label class="form-label" for="loginPassword">Password</label>
-                <input type="password" id="loginPassword" name="password" class="form-control" placeholder="••••••••••••" required>
+          <div class="form-group">
+            <label class="form-label" for="loginPassword">Password</label>
+            <div class="input-icon-wrap">
+              <i class="fas fa-lock input-icon"></i>
+              <input type="password" id="loginPassword" name="password" class="form-control"
+                     placeholder="Enter your password" required>
+              <button type="button" class="pw-toggle" id="pwToggleLogin"
+                      aria-label="Toggle password visibility">
+                <i class="fas fa-eye"></i>
+              </button>
             </div>
+          </div>
 
-            <div style="margin-top: 16px;">
-                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 8px;">
-                    Sign In
-                </button>
-            </div>
+          <div style="margin-top: 24px;">
+            <button type="submit" class="btn login-btn">
+              <i class="fas fa-right-to-bracket mr-1"></i> Sign In to Portal
+            </button>
+          </div>
         </form>
 
-        <div style="margin-top: 14px; text-align: center; font-size: 0.85rem; color: var(--text-muted);">
-            Need an account? <a href="{{ url_for('register') }}">Register here</a>
+        <div class="login-divider">or</div>
+        <a href="{{ url_for('register') }}" class="login-btn-outline">
+          <i class="fas fa-user-plus mr-1"></i> Create Account
+        </a>
+
+        <!-- Demo Accounts Quick Access -->
+        <div class="demo-section">
+          <div class="demo-title">
+            <i class="fas fa-bolt" style="color: var(--accent-amber);"></i> Quick Demo Profiles (Password: Password@123)
+          </div>
+          <div class="demo-btn-group">
+            <button type="button" class="demo-pill-btn" onclick="fillLogin('employee@gmail.com','Password@123')">
+              <i class="fas fa-user mr-1" style="color: var(--primary-light);"></i> Employee (David)
+            </button>
+            <button type="button" class="demo-pill-btn" onclick="fillLogin('manager@gmail.com','Password@123')">
+              <i class="fas fa-user-tie mr-1" style="color: #38bdf8;"></i> Manager (Alex)
+            </button>
+            <button type="button" class="demo-pill-btn" onclick="fillLogin('hr@gmail.com','Password@123')">
+              <i class="fas fa-user-shield mr-1" style="color: #34d399;"></i> HR (Sarah)
+            </button>
+            <button type="button" class="demo-pill-btn" onclick="fillLogin('admin@gmail.com','Password@123')">
+              <i class="fas fa-server mr-1" style="color: #fb7185;"></i> Admin (System)
+            </button>
+          </div>
         </div>
 
-        <div class="demo-credentials-box">
-            <div style="font-weight:600; margin-bottom: 6px; color: var(--text-main);">Demo Logins (Password: Password@123):</div>
-            <div>
-                <button type="button" class="demo-role-btn" onclick="fillLogin('employee@example.com', 'Password@123')">
-                    Employee (David)
-                </button>
-                <button type="button" class="demo-role-btn" onclick="fillLogin('manager@example.com', 'Password@123')">
-                    Manager (Alex)
-                </button>
-                <button type="button" class="demo-role-btn" onclick="fillLogin('hr@example.com', 'Password@123')">
-                    HR (Sarah)
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+      </div><!-- /.login-form-wrapper -->
+    </div><!-- /.login-right -->
+
+  </div><!-- /.login-inner -->
+</div><!-- /.login-container -->
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  var btn = document.getElementById('pwToggleLogin');
+  var inp = document.getElementById('loginPassword');
+  if (btn && inp) {
+    btn.addEventListener('click', function () {
+      var isPw = inp.type === 'password';
+      inp.type = isPw ? 'text' : 'password';
+      btn.innerHTML = isPw ? '<i class="fas fa-eye-slash"></i>' : '<i class="fas fa-eye"></i>';
+    });
+  }
+})();
+</script>
 {% endblock %}

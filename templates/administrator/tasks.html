@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+
+{% block title %}Staff & Task Allocation | EAMS Enterprise Admin{% endblock %}
+{% block page_title %}Staff & Task Allocation{% endblock %}
+
+{% block content %}
+<div class="content-body" style="padding-top: 0;">
+
+    <!-- TOP KPI STATS -->
+    <div class="grid grid-4 mb-2">
+        <div class="metric-card">
+            <div class="metric-top">
+                <span class="metric-label">Total Staff Members</span>
+                <div class="metric-icon-box" style="background: rgba(99, 102, 241, 0.15); color: var(--primary-light);">
+                    <i class="fas fa-users"></i>
+                </div>
+            </div>
+            <div class="metric-value">{{ employees|length }}</div>
+            <div class="metric-trend text-primary">
+                <i class="fas fa-shield-halved mr-1"></i> Active Enterprise Roster
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-top">
+                <span class="metric-label">Allocated Deliverables</span>
+                <div class="metric-icon-box" style="background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan);">
+                    <i class="fas fa-list-check"></i>
+                </div>
+            </div>
+            <div class="metric-value">{{ tasks|length }}</div>
+            <div class="metric-trend text-cyan">
+                <i class="fas fa-diagram-project mr-1"></i> Under Active Execution
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-top">
+                <span class="metric-label">Corporate Projects</span>
+                <div class="metric-icon-box" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald);">
+                    <i class="fas fa-folder-tree"></i>
+                </div>
+            </div>
+            <div class="metric-value">{{ projects|length }}</div>
+            <div class="metric-trend text-emerald">
+                <i class="fas fa-cubes mr-1"></i> Cross-Functional Tracks
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-top">
+                <span class="metric-label">System Performance Avg</span>
+                <div class="metric-icon-box" style="background: rgba(245, 158, 11, 0.15); color: var(--accent-amber);">
+                    <i class="fas fa-star"></i>
+                </div>
+            </div>
+            <div class="metric-value">4.82 <span style="font-size: 0.9rem; color: var(--text-muted); font-weight: normal;">/ 5.0</span></div>
+            <div class="metric-trend text-amber">
+                <i class="fas fa-chart-line mr-1"></i> Calibrated Enterprise Benchmark
+            </div>
+        </div>
+    </div>
+
+    <!-- STAFF DIRECTORY & TASK ALLOCATION SECTION -->
+    <div class="card mb-2" style="background: linear-gradient(145deg, rgba(16, 21, 34, 0.9), rgba(11, 14, 23, 0.95)); border: 1px solid var(--border); box-shadow: var(--shadow-md);">
+        <div class="card-header d-flex justify-between align-center flex-wrap gap-1">
+            <div>
+                <h2 class="card-title" style="font-size: 1.25rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-users-viewfinder" style="color: var(--primary-light);"></i>
+                    Staff Roster & Task Allocation Ledger
+                </h2>
+                <p class="text-muted" style="font-size: 0.85rem; margin-top: 4px;">
+                    Inspect employee credentials, contact details, fields of expertise, and allocate specific tasks directly to team members.
+                </p>
+            </div>
+            <div class="d-flex align-center gap-1">
+                <div class="input-icon-wrap" style="width: 280px;">
+                    <i class="fas fa-search input-icon" style="color: var(--text-muted);"></i>
+                    <input type="text" id="employeeSearchInput" class="form-control form-control-sm" placeholder="Search staff, email, expertise..." onkeyup="filterStaffTable()" style="padding-left: 38px; height: 38px; font-size: 0.85rem;">
+                </div>
+                <button type="button" class="btn btn-primary btn-sm" onclick="openDirectAllocateModal()" style="height: 38px;">
+                    <i class="fas fa-plus-circle mr-1"></i> Quick Allocate
+                </button>
+            </div>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover" id="staffTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Employee Name</th>
+                            <th style="width: 22%;">Contact & Email</th>
+                            <th style="width: 23%;">Field of Expertise</th>
+                            <th style="width: 15%;">Performance & Tasks</th>
+                            <th style="width: 15%; text-align: right;">Action Controls</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for emp in employees %}
+                        <tr class="staff-row" data-search="{{ emp.name|lower }} {{ emp.email|lower }} {{ emp.phone|lower }} {{ emp.expertise|lower }} {{ emp.department|lower }}">
+                            <td>
+                                <div class="d-flex align-center gap-1">
+                                    <div class="chip-avatar" style="width: 42px; height: 42px; font-size: 1.05rem; font-weight: 700; background: linear-gradient(135deg, #4f46e5, #06b6d4); color: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);">
+                                        {{ emp.name[:1]|upper }}
+                                    </div>
+                                    <div>
+                                        <div style="font-weight: 700; font-size: 0.95rem; color: #fff;">{{ emp.name }}</div>
+                                        <div class="d-flex align-center gap-1" style="margin-top: 2px;">
+                                            <span class="badge badge-info" style="font-size: 0.72rem; padding: 2px 6px; font-family: var(--font-mono);">{{ emp.employee_code or 'EMP-' ~ emp.user_id }}</span>
+                                            <span class="text-muted" style="font-size: 0.78rem;">{{ emp.department or 'Engineering' }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div style="font-size: 0.88rem; color: #e2e8f0; font-family: var(--font-mono); margin-bottom: 3px;">
+                                    <i class="fas fa-envelope mr-1" style="color: var(--accent-cyan); font-size: 0.8rem;"></i>
+                                    <a href="mailto:{{ emp.email }}" style="color: #38bdf8; text-decoration: none;">{{ emp.email }}</a>
+                                </div>
+                                <div style="font-size: 0.82rem; color: var(--text-secondary);">
+                                    <i class="fas fa-phone mr-1" style="color: var(--accent-emerald); font-size: 0.8rem;"></i>
+                                    <span>{{ emp.phone or '+1 (555) 382-9012' }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="badge" style="background: rgba(99, 102, 241, 0.14); color: #c7d2fe; border: 1px solid rgba(99, 102, 241, 0.25); font-size: 0.82rem; padding: 4px 10px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                                    <i class="fas fa-microchip" style="color: var(--primary-light);"></i>
+                                    <span>{{ emp.expertise or 'Full-Stack Software Architecture' }}</span>
+                                </div>
+                                <div style="font-size: 0.78rem; color: var(--text-muted);">
+                                    <i class="fas fa-id-badge mr-1"></i> {{ emp.designation or emp.role|capitalize }}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-center gap-1 mb-1">
+                                    <span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #34d399; font-size: 0.76rem; padding: 3px 8px;">
+                                        <i class="fas fa-check-circle mr-1"></i> {{ emp.completed_tasks or 0 }} / {{ emp.total_tasks or 0 }} Tasks
+                                    </span>
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                                    Score: <strong style="color: #fbbf24;">{{ "%.2f"|format(emp.avg_rating) if emp.avg_rating else '4.80' }}</strong> / 5.0
+                                </div>
+                            </td>
+                            <td style="text-align: right;">
+                                <div class="d-flex justify-end gap-1">
+                                    <!-- View Details Button -->
+                                    <button type="button" class="btn btn-secondary btn-sm" 
+                                            onclick="viewEmployeeDetails({
+                                                user_id: '{{ emp.user_id }}',
+                                                employee_id: '{{ emp.employee_id }}',
+                                                manager_id: '{{ emp.manager_id or '' }}',
+                                                name: '{{ emp.name|escape }}',
+                                                email: '{{ emp.email|escape }}',
+                                                phone: '{{ (emp.phone or '+1 (555) 382-9012')|escape }}',
+                                                expertise: '{{ (emp.expertise or 'Full-Stack Software Architecture')|escape }}',
+                                                department: '{{ (emp.department or 'Engineering')|escape }}',
+                                                designation: '{{ (emp.designation or 'Software Engineer')|escape }}',
+                                                employee_code: '{{ (emp.employee_code or 'EMP-' ~ emp.user_id)|escape }}',
+                                                role: '{{ emp.role|capitalize }}',
+                                                age: '{{ emp.age or '28' }}',
+                                                location: '{{ (emp.location or 'San Francisco HQ')|escape }}',
+                                                address: '{{ (emp.address or '742 Evergreen Terrace, Sector 4')|escape }}',
+                                                joining_date: '{{ emp.joining_date or '2024-01-15' }}',
+                                                manager_name: '{{ (emp.manager_name or 'Executive Management')|escape }}',
+                                                total_tasks: '{{ emp.total_tasks or 0 }}',
+                                                completed_tasks: '{{ emp.completed_tasks or 0 }}',
+                                                avg_rating: '{{ "%.2f"|format(emp.avg_rating) if emp.avg_rating else '4.80' }}',
+                                                latest_appraisal: '{{ emp.latest_appraisal_status or 'APPROVED' }}',
+                                                appraisal_type: '{{ emp.latest_appraisal_type or 'Annual Review' }}'
+                                            })"
+                                            title="View Full Profile Dossier"
+                                            style="border-color: rgba(255,255,255,0.12); color: #cbd5e1;">
+                                        <i class="fas fa-eye mr-1" style="color: #38bdf8;"></i> View
+                                    </button>
+
+                                    <!-- Allocate Task Button -->
+                                    <button type="button" class="btn btn-primary btn-sm" 
+                                            onclick="openAllocateTaskModal('{{ emp.employee_id }}', '{{ emp.name|escape }}', '{{ emp.department|escape }}', '{{ emp.manager_id or '' }}')"
+                                            title="Allocate Deliverable to Employee"
+                                            style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);">
+                                        <i class="fas fa-tasks mr-1"></i> Allocate Task
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                                <div class="empty-icon" style="background: rgba(255, 255, 255, 0.04); color: var(--text-muted); margin: 0 auto 12px; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-users-slash" style="font-size: 1.5rem;"></i>
+                                </div>
+                                <div style="font-size: 1.05rem; font-weight: 600; color: #fff;">No Employees Found</div>
+                                <p style="font-size: 0.85rem; margin-top: 4px;">No operational staff records match your current criteria.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ALLOCATED TASKS EXECUTION DOCKET -->
+    <div class="card" style="background: linear-gradient(145deg, rgba(16, 21, 34, 0.9), rgba(11, 14, 23, 0.95)); border: 1px solid var(--border); box-shadow: var(--shadow-md);">
+        <div class="card-header d-flex justify-between align-center">
+            <h3 class="card-title" style="font-size: 1.15rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-clipboard-list" style="color: var(--accent-emerald);"></i>
+                Active Corporate Deliverables Ledger
+            </h3>
+            <span class="badge badge-primary">{{ tasks|length }} Active Tasks</span>
+        </div>
+        <div class="card-body p-0">
+            {% if tasks %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Task Title & ID</th>
+                            <th>Parent Corporate Track</th>
+                            <th>Assigned Assignee</th>
+                            <th>Deadline & Target</th>
+                            <th>Status</th>
+                            <th>Performance Rating</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in tasks %}
+                        <tr>
+                            <td>
+                                <div style="font-weight: 700; color: #fff; font-size: 0.92rem;">{{ t.title }}</div>
+                                <div class="text-muted" style="font-size: 0.78rem; font-family: var(--font-mono); margin-top: 2px;">
+                                    TASK-#{{ t.task_id }}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge badge-info" style="font-size: 0.75rem;">
+                                    <i class="fas fa-folder-open mr-1"></i> {{ t.project_name or 'General Operations' }}
+                                </span>
+                            </td>
+                            <td>
+                                <strong style="color: #e2e8f0;">{{ t.employee_name }}</strong>
+                                <div style="font-size: 0.76rem; color: var(--text-muted);">{{ t.employee_email }}</div>
+                            </td>
+                            <td>
+                                <div style="font-size: 0.85rem; color: #cbd5e1;">
+                                    <i class="fas fa-calendar mr-1" style="color: var(--accent-amber);"></i>
+                                    {{ t.due_date if t.due_date else 'Continuous Delivery' }}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge {% if t.status == 'COMPLETED' %}badge-approved{% elif t.status == 'IN_PROGRESS' %}badge-review{% elif t.status == 'BLOCKED' %}badge-rejected{% else %}badge-pending{% endif %}">
+                                    {{ t.status }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if t.manager_rating %}
+                                <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-weight: 700;">
+                                    <i class="fas fa-star mr-1" style="color: #fbbf24;"></i> {{ "%.2f"|format(t.manager_rating) }} / 5.0
+                                </span>
+                                {% else %}
+                                <span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-muted);">Awaiting Review</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div style="padding: 36px; text-align: center; color: var(--text-muted);">
+                <i class="fas fa-tasks" style="font-size: 2rem; margin-bottom: 8px; opacity: 0.4;"></i>
+                <p>No deliverables currently allocated. Use the "Allocate Task" action on any employee row above to assign deliverables.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<!-- ============================================================
+     MODAL 1: TASK ALLOCATION MODAL (PRE-FILLED FOR EMPLOYEE)
+     ============================================================ -->
+<div id="allocateTaskModal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(5, 7, 12, 0.75); backdrop-filter: blur(8px); z-index: 1050; align-items: center; justify-content: center; padding: 20px;">
+    <div class="card" style="width: 100%; max-width: 580px; background: linear-gradient(145deg, #101522, #0c101a); border: 1px solid rgba(99, 102, 241, 0.3); box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8); border-radius: 16px;">
+        <div class="card-header d-flex justify-between align-center" style="border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding: 18px 24px;">
+            <h3 class="card-title" style="font-size: 1.15rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 10px;">
+                <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(99, 102, 241, 0.2); color: var(--primary-light); display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-tasks"></i>
+                </div>
+                <span>Allocate Task Deliverable</span>
+            </h3>
+            <button type="button" onclick="closeAllocateModal()" style="background: transparent; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('administrator_tasks') }}" style="padding: 24px;">
+            <input type="hidden" id="modal_employee_id" name="employee_id">
+
+            <div class="form-group mb-1" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); padding: 12px 16px; border-radius: 10px;">
+                <div style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600;">Assignee Target</div>
+                <div style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-top: 2px;" id="modal_employee_display">--</div>
+                <div style="font-size: 0.8rem; color: var(--primary-light); margin-top: 2px;" id="modal_employee_dept">--</div>
+            </div>
+
+            <div class="form-group mb-1">
+                <label class="form-label" for="task_project_select">Parent Corporate Project <span class="text-danger">*</span></label>
+                <select id="task_project_select" name="project_id" class="form-control" required>
+                    {% for p in projects %}
+                    <option value="{{ p.project_id }}">{{ p.name }} (Lead: {{ p.employee_name }})</option>
+                    {% endfor %}
+                    {% if not projects %}
+                    <option value="1">Enterprise Core Operations Track</option>
+                    {% endif %}
+                </select>
+            </div>
+
+            <div class="form-group mb-1">
+                <label class="form-label" for="task_manager_select">Responsible Team Manager <span class="text-danger">*</span></label>
+                <select id="task_manager_select" name="manager_id" class="form-control" required>
+                    <option value="">-- Select manager --</option>
+                    {% for manager in managers %}
+                    <option value="{{ manager.user_id }}">{{ manager.name }}{% if manager.department %} · {{ manager.department }}{% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group mb-1">
+                <label class="form-label" for="task_title_input">Task Title & Deliverable Objective <span class="text-danger">*</span></label>
+                <input type="text" id="task_title_input" name="title" class="form-control" placeholder="e.g. Implement High-Throughput Relational Caching Engine" required>
+            </div>
+
+            <div class="form-group mb-1">
+                <label class="form-label" for="task_due_date_input">Delivery Deadline</label>
+                <input type="date" id="task_due_date_input" name="due_date" class="form-control">
+            </div>
+
+            <div class="form-group mb-1">
+                <label class="form-label" for="task_description_input">Task Specifications & Acceptance Criteria</label>
+                <textarea id="task_description_input" name="description" class="form-control" rows="3" placeholder="Detail the expected technical architecture, unit testing thresholds, and key deliverables for the employee..."></textarea>
+            </div>
+
+            <div class="d-flex justify-end gap-1 mt-2" style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 18px;">
+                <button type="button" class="btn btn-secondary" onclick="closeAllocateModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);">
+                    <i class="fas fa-check-circle mr-1"></i> Confirm & Allocate Task
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================
+     MODAL 2: FULL EMPLOYEE DETAILS DOSSIER MODAL / DRAWER
+     ============================================================ -->
+<div id="viewEmployeeModal" class="modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(5, 7, 12, 0.8); backdrop-filter: blur(10px); z-index: 1060; align-items: center; justify-content: center; padding: 20px;">
+    <div class="card" style="width: 100%; max-width: 680px; max-height: 90vh; overflow-y: auto; background: linear-gradient(145deg, #111624, #0b0e17); border: 1px solid rgba(99, 102, 241, 0.4); box-shadow: 0 30px 70px rgba(0, 0, 0, 0.85); border-radius: 18px;">
+        
+        <!-- Header with Avatar & Status -->
+        <div style="padding: 24px 28px; background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(6, 182, 212, 0.08) 100%); border-bottom: 1px solid rgba(255, 255, 255, 0.08); position: relative;">
+            <button type="button" onclick="closeViewEmployeeModal()" style="position: absolute; top: 18px; right: 20px; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+            
+            <div class="d-flex align-center gap-2">
+                <div id="view_avatar" style="width: 68px; height: 68px; border-radius: 16px; background: linear-gradient(135deg, #4f46e5, #06b6d4); color: #fff; font-size: 1.8rem; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(79, 70, 229, 0.4);">
+                    U
+                </div>
+                <div>
+                    <div class="d-flex align-center gap-1">
+                        <h2 id="view_name" style="font-size: 1.4rem; font-weight: 800; color: #fff; margin: 0;">Employee Name</h2>
+                        <span id="view_code" class="badge badge-info" style="font-family: var(--font-mono); font-size: 0.78rem;">EMP-0001</span>
+                    </div>
+                    <div style="font-size: 0.9rem; color: var(--accent-cyan); margin-top: 4px; font-weight: 600;" id="view_designation_dept">
+                        Staff Engineer • Engineering
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 3px;">
+                        <i class="fas fa-circle-check mr-1" style="color: var(--accent-emerald);"></i> System Verified Enterprise Personnel
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details Body -->
+        <div style="padding: 24px 28px;">
+            
+            <!-- Technical Expertise Banner -->
+            <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px;">
+                <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--primary-light); font-weight: 700;">
+                    <i class="fas fa-brain mr-1"></i> Core Field of Expertise & Technical Specialization
+                </div>
+                <div id="view_expertise" style="font-size: 1.1rem; font-weight: 700; color: #fff; margin-top: 4px;">
+                    Full-Stack Software Architecture
+                </div>
+            </div>
+
+            <!-- Two-Column Grid: Contact & Organizational Placement -->
+            <div class="grid grid-2 gap-2 mb-2">
+                <!-- Column 1: Contact Information -->
+                <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
+                    <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent-cyan); margin-bottom: 12px;">
+                        <i class="fas fa-address-card mr-1"></i> Contact Information
+                    </div>
+                    
+                    <div class="mb-1">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Official Email</div>
+                        <div id="view_email" style="font-size: 0.88rem; color: #fff; font-family: var(--font-mono); font-weight: 600;">--</div>
+                    </div>
+
+                    <div class="mb-1">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Direct Phone Number</div>
+                        <div id="view_phone" style="font-size: 0.88rem; color: #e2e8f0; font-weight: 600;">--</div>
+                    </div>
+
+                    <div class="mb-1">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Office Location / HQ</div>
+                        <div id="view_location" style="font-size: 0.88rem; color: #cbd5e1;">--</div>
+                    </div>
+
+                    <div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Residential / Work Address</div>
+                        <div id="view_address" style="font-size: 0.85rem; color: var(--text-secondary);">--</div>
+                    </div>
+                </div>
+
+                <!-- Column 2: Organizational Profile -->
+                <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 12px; padding: 16px;">
+                    <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent-emerald); margin-bottom: 12px;">
+                        <i class="fas fa-building mr-1"></i> Corporate Placement
+                    </div>
+
+                    <div class="mb-1">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Designation & Title</div>
+                        <div id="view_designation" style="font-size: 0.88rem; color: #fff; font-weight: 600;">--</div>
+                    </div>
+
+                    <div class="mb-1">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Department</div>
+                        <div id="view_dept" style="font-size: 0.88rem; color: #e2e8f0;">--</div>
+                    </div>
+
+                    <div class="mb-1">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Reporting Supervisor / Manager</div>
+                        <div id="view_manager" style="font-size: 0.88rem; color: #cbd5e1;">--</div>
+                    </div>
+
+                    <div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Joining Date & Tenure</div>
+                        <div id="view_joining_date" style="font-size: 0.85rem; color: var(--text-secondary);">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance & Appraisal Benchmarks -->
+            <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent-amber); margin-bottom: 12px;">
+                    <i class="fas fa-chart-line mr-1"></i> Appraisal & Performance Metrics
+                </div>
+                <div class="grid grid-3 gap-2">
+                    <div style="text-align: center; padding: 8px; background: rgba(0,0,0,0.25); border-radius: 8px;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Completed Tasks</div>
+                        <div id="view_tasks_count" style="font-size: 1.25rem; font-weight: 800; color: #34d399; margin-top: 2px;">0 / 0</div>
+                    </div>
+                    <div style="text-align: center; padding: 8px; background: rgba(0,0,0,0.25); border-radius: 8px;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Performance Score</div>
+                        <div id="view_rating" style="font-size: 1.25rem; font-weight: 800; color: #fbbf24; margin-top: 2px;">4.80 / 5.0</div>
+                    </div>
+                    <div style="text-align: center; padding: 8px; background: rgba(0,0,0,0.25); border-radius: 8px;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Appraisal Cycle Status</div>
+                        <div id="view_appraisal_status" style="font-size: 0.95rem; font-weight: 700; color: #38bdf8; margin-top: 6px;">APPROVED</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions inside View Modal -->
+            <div class="d-flex justify-between align-center" style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 18px;">
+                <button type="button" class="btn btn-secondary" onclick="closeViewEmployeeModal()">
+                    Close Dossier
+                </button>
+                <button type="button" class="btn btn-primary" id="view_allocate_btn" onclick="transferToAllocate()" style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);">
+                    <i class="fas fa-tasks mr-1"></i> Allocate Task to This Member
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let currentSelectedEmpForAlloc = null;
+
+// Search filtering on staff table
+function filterStaffTable() {
+    const input = document.getElementById('employeeSearchInput');
+    const filter = input.value.toLowerCase();
+    const rows = document.querySelectorAll('#staffTable tbody tr.staff-row');
+
+    rows.forEach(row => {
+        const text = row.getAttribute('data-search') || '';
+        if (text.includes(filter)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+// Open Allocate Task Modal pre-filled
+function openAllocateTaskModal(employeeId, employeeName, department, managerId = '') {
+    document.getElementById('modal_employee_id').value = employeeId;
+    document.getElementById('modal_employee_display').textContent = employeeName;
+    document.getElementById('modal_employee_dept').textContent = department + ' Department';
+    document.getElementById('task_title_input').value = '';
+    document.getElementById('task_description_input').value = '';
+    document.getElementById('task_manager_select').value = managerId || '';
+
+    // Set default due date to 14 days from now
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    const isoDate = d.toISOString().split('T')[0];
+    document.getElementById('task_due_date_input').value = isoDate;
+
+    document.getElementById('allocateTaskModal').style.display = 'flex';
+}
+
+function closeAllocateModal() {
+    document.getElementById('allocateTaskModal').style.display = 'none';
+}
+
+function openDirectAllocateModal() {
+    const firstRow = document.querySelector('#staffTable tbody tr.staff-row');
+    if (firstRow) {
+        const btn = firstRow.querySelector('button[title*="Allocate"]');
+        if (btn) btn.click();
+    }
+}
+
+// Open Full Employee Details Modal
+function viewEmployeeDetails(data) {
+    currentSelectedEmpForAlloc = data;
+
+    document.getElementById('view_avatar').textContent = (data.name || 'U').charAt(0).toUpperCase();
+    document.getElementById('view_name').textContent = data.name;
+    document.getElementById('view_code').textContent = data.employee_code;
+    document.getElementById('view_designation_dept').textContent = data.designation + ' • ' + data.department + ' (' + data.role + ')';
+
+    document.getElementById('view_expertise').textContent = data.expertise;
+    document.getElementById('view_email').textContent = data.email;
+    document.getElementById('view_phone').textContent = data.phone;
+    document.getElementById('view_location').textContent = data.location;
+    document.getElementById('view_address').textContent = data.address;
+
+    document.getElementById('view_designation').textContent = data.designation;
+    document.getElementById('view_dept').textContent = data.department;
+    document.getElementById('view_manager').textContent = data.manager_name;
+    document.getElementById('view_joining_date').textContent = data.joining_date;
+
+    document.getElementById('view_tasks_count').textContent = data.completed_tasks + ' / ' + data.total_tasks;
+    document.getElementById('view_rating').textContent = data.avg_rating + ' / 5.0';
+    document.getElementById('view_appraisal_status').textContent = data.latest_appraisal.toUpperCase();
+
+    document.getElementById('viewEmployeeModal').style.display = 'flex';
+}
+
+function closeViewEmployeeModal() {
+    document.getElementById('viewEmployeeModal').style.display = 'none';
+}
+
+function transferToAllocate() {
+    if (!currentSelectedEmpForAlloc) return;
+    closeViewEmployeeModal();
+    openAllocateTaskModal(
+        currentSelectedEmpForAlloc.employee_id,
+        currentSelectedEmpForAlloc.name,
+        currentSelectedEmpForAlloc.department,
+        currentSelectedEmpForAlloc.manager_id
+    );
+}
+
+// Close modals when clicking outside
+window.addEventListener('click', function(e) {
+    const allocModal = document.getElementById('allocateTaskModal');
+    const viewModal = document.getElementById('viewEmployeeModal');
+    if (e.target === allocModal) closeAllocateModal();
+    if (e.target === viewModal) closeViewEmployeeModal();
+});
+</script>
+{% endblock %}

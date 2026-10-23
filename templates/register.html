@@ -1,105 +1,212 @@
 {% extends "base.html" %}
 
-{% block title %}Register | Employee Appraisal Management System{% endblock %}
+{% block title %}Register Profile | EAMS Enterprise Portal{% endblock %}
 
 {% block auth_content %}
-<div class="auth-page-wrapper">
-    <div class="auth-card" style="max-width: 520px;">
-        <div class="auth-header">
-            <h1 class="auth-title">Create Account</h1>
-            <p class="auth-subtitle">Register a new Employee or Manager account in EAMS</p>
+<div class="login-container register-container">
+  <div class="login-inner" style="width: min(1180px, 100%);">
+
+    <!-- =====================================================
+         LEFT — High-Tech Visual Branding
+         ===================================================== -->
+    <div class="login-left">
+      <div class="login-left-badge">
+        <i class="fas fa-user-plus" style="color: var(--primary-light);"></i>
+        <span class="login-left-badge-text">EAMS</span>
+        <span class="login-left-badge-sub">Account Provisioning</span>
+      </div>
+
+      <h1 class="login-left-headline">Join the Next-Gen<br>Appraisal<br>Platform.</h1>
+      <div class="login-left-divider"></div>
+      
+      <p class="login-left-tagline">
+        Set up your operational credentials to access transparent appraisal cycles, submit work claims, and track career progression.
+      </p>
+
+      <img
+        class="login-left-img"
+        src="{{ url_for('static', filename='images/eams-illus.jpg') }}"
+        alt="EAMS workplace intelligence"
+      >
+
+      <div class="login-left-footer">
+        <span class="login-left-footer-item"><i class="fas fa-users-gear mr-1"></i> Employees</span>
+        <span class="login-left-footer-sep">/</span>
+        <span class="login-left-footer-item"><i class="fas fa-chart-line mr-1"></i> Performance</span>
+        <span class="login-left-footer-sep">/</span>
+        <span class="login-left-footer-item"><i class="fas fa-award mr-1"></i> Appraisals</span>
+        <span class="login-left-footer-sep">/</span>
+        <span class="login-left-footer-item"><i class="fas fa-shield-halved mr-1"></i> Security</span>
+      </div>
+    </div>
+
+    <!-- =====================================================
+         RIGHT — Cyber-Obsidian Black Registration Form Card
+         ===================================================== -->
+    <div class="login-right">
+      <div class="login-form-wrapper" style="max-width: 520px;">
+
+        <!-- Brand Block -->
+        <div class="login-brand-block">
+          <div class="d-flex align-center gap-1 mb-1">
+            <div class="brand-icon-box" style="width: 32px; height: 32px; font-size: 14px;">
+              <i class="fas fa-layer-group"></i>
+            </div>
+            <div>
+              <p class="login-brand-title" style="font-size: 22px; margin: 0;">EAMS</p>
+            </div>
+          </div>
+          <p class="login-brand-sub">Employee Appraisal Management System</p>
+          <div class="login-brand-rule"></div>
         </div>
 
+        <!-- Heading -->
+        <div class="login-header">
+          <h2 class="login-title">Create Account</h2>
+          <p class="login-subtitle">Fill in your professional details to establish your profile</p>
+        </div>
+
+        <!-- Flash messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">
-                        <span>{{ message }}</span>
-                        <button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:inherit;">&times;</button>
-                    </div>
-                {% endfor %}
-            {% endif %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">
+                <div class="alert-content">
+                  <i class="fas {% if category == 'success' %}fa-circle-check{% elif category == 'danger' %}fa-triangle-exclamation{% elif category == 'warning' %}fa-circle-exclamation{% else %}fa-circle-info{% endif %}"></i>
+                  <span>{{ message }}</span>
+                </div>
+                <button onclick="this.parentElement.remove()" class="alert-close">&times;</button>
+              </div>
+            {% endfor %}
+          {% endif %}
         {% endwith %}
 
-        <form method="POST" action="{{ url_for('register') }}">
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label" for="regName">Full Name *</label>
-                    <input type="text" id="regName" name="name" class="form-control" placeholder="John Doe" required autofocus>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="regEmail">Work Email *</label>
-                    <input type="email" id="regEmail" name="email" class="form-control" placeholder="john.doe@example.com" required>
-                </div>
-            </div>
+        <!-- Registration Form -->
+        <form method="POST" action="{{ url_for('register') }}" class="login-form">
 
+          <div class="form-row">
             <div class="form-group">
-                <label class="form-label" for="regRole">Role *</label>
-                <select id="regRole" name="role" class="form-control" required>
-                    <option value="employee" selected>Employee</option>
-                    <option value="manager">Manager</option>
-                </select>
+              <label class="form-label" for="regName">Full Legal Name *</label>
+              <div class="input-icon-wrap">
+                <i class="fas fa-user input-icon"></i>
+                <input type="text" id="regName" name="name" class="form-control"
+                       placeholder="e.g. John Doe" required autofocus>
+              </div>
             </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label" for="regPassword">Password *</label>
-                    <input type="password" id="regPassword" name="password" class="form-control" placeholder="Min. 8 characters" required minlength="8">
-                    <div class="password-strength-box">
-                        <span id="regStrengthLabel" class="strength-label"></span>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="regConfirmPassword">Confirm Password *</label>
-                    <input type="password" id="regConfirmPassword" name="confirm_password" class="form-control" placeholder="Confirm password" required minlength="8">
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label" for="regAge">Age</label>
-                    <input type="number" id="regAge" name="age" class="form-control" placeholder="e.g. 28" min="16" max="100">
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="regPhone">Phone Number</label>
-                    <input type="text" id="regPhone" name="phone" class="form-control" placeholder="+1 (555) 000-0000">
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label" for="regDepartment">Department</label>
-                    <input type="text" id="regDepartment" name="department" class="form-control" placeholder="e.g. Engineering" value="Engineering">
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="regLocation">Location / Office</label>
-                    <input type="text" id="regLocation" name="location" class="form-control" placeholder="e.g. New York Headquarters">
-                </div>
-            </div>
-
             <div class="form-group">
-                <label class="form-label" for="regAddress">Residential Address</label>
-                <textarea id="regAddress" name="address" class="form-control" rows="2" placeholder="Street, City, State, ZIP"></textarea>
+              <label class="form-label" for="regEmail">Gmail Address *</label>
+              <div class="input-icon-wrap">
+                <i class="fas fa-envelope input-icon"></i>
+                <input type="email" id="regEmail" name="email" class="form-control"
+                       placeholder="john.doe@gmail.com" required>
+              </div>
             </div>
+          </div>
 
-            <div style="margin-top: 16px;">
-                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 8px;">
-                    Create Account
-                </button>
+          <div class="form-group">
+            <label class="form-label" for="regRole">Select Role *</label>
+            <div class="input-icon-wrap">
+              <i class="fas fa-shield-halved input-icon"></i>
+              <select id="regRole" name="role" class="form-control" required style="padding-left: 42px;">
+                <option value="employee" selected>Employee (Individual Contributor)</option>
+                <option value="manager">Manager (Team Lead / Reviewer)</option>
+              </select>
             </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="regPassword">Password *</label>
+              <div class="input-icon-wrap">
+                <i class="fas fa-lock input-icon"></i>
+                <input type="password" id="regPassword" name="password" class="form-control"
+                       placeholder="Min. 8 characters" required minlength="8">
+              </div>
+              <div class="password-strength-box">
+                <span id="regStrengthLabel" class="strength-label"></span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="regConfirmPassword">Confirm Password *</label>
+              <div class="input-icon-wrap">
+                <i class="fas fa-check-double input-icon"></i>
+                <input type="password" id="regConfirmPassword" name="confirm_password" class="form-control"
+                       placeholder="Confirm password" required minlength="8">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="regAge">Age (21+) *</label>
+              <div class="input-icon-wrap">
+                <i class="fas fa-calendar input-icon"></i>
+                <input type="number" id="regAge" name="age" class="form-control"
+                       placeholder="e.g. 28" min="21" max="100" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="regPhone">Phone Contact</label>
+              <div class="input-icon-wrap">
+                <i class="fas fa-phone input-icon"></i>
+                <input type="text" id="regPhone" name="phone" class="form-control"
+                       placeholder="+1 (555) 000-0000">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="regDepartment">Department</label>
+              <div class="input-icon-wrap">
+                <i class="fas fa-building input-icon"></i>
+                <input type="text" id="regDepartment" name="department" class="form-control"
+                       placeholder="e.g. Engineering" value="Engineering">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="regLocation">Office Location</label>
+              <div class="input-icon-wrap">
+                <i class="fas fa-location-dot input-icon"></i>
+                <input type="text" id="regLocation" name="location" class="form-control"
+                       placeholder="e.g. Headquarters">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="regAddress">Residential Address</label>
+            <div class="input-icon-wrap">
+              <i class="fas fa-map-pin input-icon" style="top: 20px;"></i>
+              <textarea id="regAddress" name="address" class="form-control" rows="2"
+                        placeholder="Street, City, State, ZIP" style="padding-left: 42px;"></textarea>
+            </div>
+          </div>
+
+          <div style="margin-top: 22px;">
+            <button type="submit" class="btn login-btn">
+              <i class="fas fa-user-check mr-1"></i> Complete Registration
+            </button>
+          </div>
+
         </form>
 
-        <div style="margin-top: 16px; text-align: center; font-size: 0.85rem; color: var(--text-muted);">
-            Already have an account? <a href="{{ url_for('login') }}">Sign in here</a>
+        <div class="login-footer" style="margin-top: 20px; text-align: center;">
+          <span style="color: var(--text-muted); font-size: 13px;">Already have an operational account?</span>
+          <a href="{{ url_for('login') }}" class="login-link" style="color: var(--primary-light); font-weight: 700; margin-left: 6px;">Sign in here</a>
         </div>
-    </div>
-</div>
+
+      </div><!-- /.login-form-wrapper -->
+    </div><!-- /.login-right -->
+
+  </div><!-- /.login-inner -->
+</div><!-- /.login-container -->
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    bindPasswordStrength("regPassword", "regStrengthLabel");
+  bindPasswordStrength("regPassword", "regStrengthLabel");
 });
 </script>
 {% endblock %}

@@ -10,6 +10,7 @@ from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+from flask import send_file, abort
 
 from config import Config
 import database as db
@@ -21,6 +22,11 @@ app.config.from_object(Config)
 
 # Ensure upload directory exists
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
+# Keep existing installations aligned with the fields used by the current
+# routes.  The migration is idempotent and handles older databases created
+# from earlier versions of schema.sql.
+db.migrate_db_schema()
 
 
 def allowed_file(filename):
@@ -85,7 +91,7 @@ def role_required(*allowed_roles):
             
             user_role = session.get("role", "").lower()
             if user_role == "admin":
-                user_role = "hr"
+                user_role = "administrator"
 
             normalized_allowed = [r.lower() for r in allowed_roles]
             if user_role not in normalized_allowed:
@@ -96,7 +102,7 @@ def role_required(*allowed_roles):
                     return redirect(url_for("employee_dashboard"))
                 elif user_role == "manager":
                     return redirect(url_for("manager_dashboard"))
-                elif user_role in ("hr", "admin"):
+                elif user_role == "hr":
                     return redirect(url_for("hr_dashboard"))
                 elif user_role == "administrator":
                     return redirect(url_for("administrator_dashboard"))
@@ -126,17 +132,43 @@ def login():
             flash("Invalid email address or password.", "danger")
             return render_template("login.html")
 
-        # Credentials are valid. Generate 4-digit OTP and store hash for 2FA.
-        otp_code = f"{secrets.randbelow(10000):04d}"
-        db.create_otp(user["user_id"], otp_code, expiry_seconds=Config.OTP_EXPIRY_SECONDS)
-        email_service.send_otp_email(user["email"], otp_code)
-
-        # Set temporary pre-auth session state (not full access)
+        # Directly authenticate user without OTP
         session.clear()
-        session["pre_auth_user_id"] = user["user_id"]
-        session["pre_auth_email"] = user["email"]
-        flash(f"A 4-digit verification code has been dispatched to {user['email']}.", "info")
-        return redirect(url_for("otp_verify"))
+        session["user_id"] = user["user_id"]
+        session["name"] = user["name"]
+        session["email"] = user["email"]
+        session["role"] = "administrator" if user["role"].lower() == "admin" else user["role"].lower()
+        session["must_change_password"] = bool(user.get("must_change_password"))
+        session["user"] = {
+            "id": user["user_id"],
+            "name": user["name"],
+            "email": user["email"],
+            "role": session["role"],
+            "must_change_password": bool(user.get("must_change_password"))
+        }
+
+        # Write audit log
+        db.create_audit_log(user["user_id"], "LOGIN", "USER", user["user_id"], f"User {user['email']} logged in.")
+
+        # Check if must change temporary password
+        if session.get("must_change_password"):
+            flash("Temporary credentials detected. Please set your new permanent password.", "warning")
+            return redirect(url_for("force_password_change"))
+
+        flash("Welcome back!", "success")
+
+        # Route to role dashboard
+        role = user["role"].lower()
+        if role == "employee":
+            return redirect(url_for("employee_dashboard"))
+        elif role == "manager":
+            return redirect(url_for("manager_dashboard"))
+        elif role == "hr":
+            return redirect(url_for("hr_dashboard"))
+        elif role in ("administrator", "admin"):
+            return redirect(url_for("administrator_dashboard"))
+        else:
+            return redirect(url_for("employee_dashboard"))
 
     # If already fully logged in, route to appropriate dashboard
     if "user_id" in session:
@@ -145,9 +177,9 @@ def login():
             return redirect(url_for("employee_dashboard"))
         elif role == "manager":
             return redirect(url_for("manager_dashboard"))
-        elif role in ("hr", "admin"):
+        elif role == "hr":
             return redirect(url_for("hr_dashboard"))
-        elif role == "administrator":
+        elif role in ("administrator", "admin"):
             return redirect(url_for("administrator_dashboard"))
 
     return render_template("login.html")
@@ -155,98 +187,12 @@ def login():
 
 @app.route("/otp-verify", methods=["GET", "POST"])
 def otp_verify():
-    if "pre_auth_user_id" not in session:
-        return redirect(url_for("login"))
-
-    user_id = session["pre_auth_user_id"]
-    flow = session.get("pre_auth_flow", "login")  # 'login' or 'registration'
-
-    if request.method == "POST":
-        otp_code = request.form.get("otp_code", "").strip()
-
-        if not otp_code:
-            flash("Please enter the 4-digit verification code.", "danger")
-            return render_template("otp_verify.html")
-
-        # Check debug bypass code or verify against database hash
-        bypass_debug = getattr(Config, "OTP_BYPASS_DEBUG", False) and getattr(Config, "DEBUG", False)
-        success = False
-        msg = ""
-
-        if bypass_debug and otp_code == "0000":
-            success = True
-            msg = "Dev OTP bypass accepted."
-        else:
-            success, msg = db.verify_user_otp(user_id, otp_code)
-
-        if not success:
-            flash(msg, "danger")
-            return render_template("otp_verify.html")
-
-        # For registration flow: mark email as verified now (once and only once)
-        if flow == "registration":
-            db.set_email_verified(user_id)
-
-        # Promote to full authenticated session
-        user = db.get_user_by_id(user_id)
-        if not user:
-            flash("User record not found. Please log in again.", "danger")
-            return redirect(url_for("login"))
-
-        session.clear()
-        session["user_id"] = user["user_id"]
-        session["name"] = user["name"]
-        session["email"] = user["email"]
-        session["role"] = user["role"].lower()
-        session["must_change_password"] = bool(user.get("must_change_password"))
-        session["user"] = {
-            "id": user["user_id"],
-            "name": user["name"],
-            "email": user["email"],
-            "role": user["role"].lower(),
-            "must_change_password": bool(user.get("must_change_password"))
-        }
-
-        # Write audit log
-        log_action = "REGISTER_LOGIN" if flow == "registration" else "LOGIN"
-        db.create_audit_log(user["user_id"], log_action, "USER", user["user_id"], f"User {user['email']} verified email and logged in.")
-
-        # Check if must change temporary password
-        if session.get("must_change_password"):
-            flash("Temporary credentials detected. Please set your new permanent password.", "warning")
-            return redirect(url_for("force_password_change"))
-
-        if flow == "registration":
-            flash("Email verified! Welcome to EAMS. You can now log in any time with just your email and password.", "success")
-
-        # Route to role dashboard
-        role = user["role"].lower()
-        if role == "employee":
-            return redirect(url_for("employee_dashboard"))
-        elif role == "manager":
-            return redirect(url_for("manager_dashboard"))
-        elif role in ("hr", "admin"):
-            return redirect(url_for("hr_dashboard"))
-        elif role == "administrator":
-            return redirect(url_for("administrator_dashboard"))
-        else:
-            return redirect(url_for("employee_dashboard"))
-
-    return render_template("otp_verify.html")
+    return redirect(url_for("login"))
 
 
 @app.route("/resend-otp", methods=["GET"])
 def resend_otp():
-    user_id = session.get("pre_auth_user_id")
-    email = session.get("pre_auth_email")
-    if not user_id or not email:
-        return redirect(url_for("login"))
-
-    otp_code = f"{secrets.randbelow(10000):04d}"
-    db.create_otp(user_id, otp_code, expiry_seconds=Config.OTP_EXPIRY_SECONDS)
-    email_service.send_otp_email(email, otp_code)
-    flash(f"A new verification code has been dispatched to {email}.", "info")
-    return redirect(url_for("otp_verify"))
+    return redirect(url_for("login"))
 
 
 @app.route("/force-password-change", methods=["GET", "POST"])
@@ -258,7 +204,7 @@ def force_password_change():
         role = session.get("role", "employee")
         if role == "manager":
             return redirect(url_for("manager_dashboard"))
-        elif role in ("hr", "admin"):
+        elif role == "hr":
             return redirect(url_for("hr_dashboard"))
         elif role == "administrator":
             return redirect(url_for("administrator_dashboard"))
@@ -291,7 +237,7 @@ def force_password_change():
         role = session.get("role", "employee")
         if role == "manager":
             return redirect(url_for("manager_dashboard"))
-        elif role in ("hr", "admin"):
+        elif role == "hr":
             return redirect(url_for("hr_dashboard"))
         elif role == "administrator":
             return redirect(url_for("administrator_dashboard"))
@@ -311,6 +257,7 @@ def register():
         address = request.form.get("address", "").strip()
         phone = request.form.get("phone", "").strip()
         department = request.form.get("department", "Engineering").strip()
+        expertise = request.form.get("expertise", "").strip() or "Full-Stack Software Architecture"
         location = request.form.get("location", "").strip()
         role = request.form.get("role", "employee").strip().lower()
 
@@ -372,8 +319,10 @@ def register():
                 address=address,
                 department=department or "Engineering",
                 designation="Manager" if role == "manager" else "Software Engineer",
-                phone=phone,
-                location=location
+                phone=phone or "+1 (555) 382-9012",
+                location=location,
+                expertise=expertise,
+                must_change_password=1
             )
             action = "REGISTER_MANAGER" if role == "manager" else "REGISTER"
             db.create_audit_log(result["user_id"], action, "USER", result["user_id"], f"User {email} registered a new {role} account.")
@@ -588,11 +537,39 @@ def employee_appeals():
     )
 
 
-@app.route("/employee/investigations")
+@app.route("/employee/investigations", methods=["GET", "POST"])
 @login_required
 @role_required("employee")
 def employee_investigations():
     emp = db.get_employee_by_user_id(session["user_id"])
+    if request.method == "POST":
+        issue_type = request.form.get("issue_type", "Appraisal Rating Dispute / Evaluation Bias").strip()
+        subject = request.form.get("subject", "").strip()
+        description = request.form.get("description", "").strip()
+        evidence = request.form.get("evidence_details", "").strip() or None
+        appraisal_id = request.form.get("appraisal_id") or None
+        if appraisal_id:
+            try:
+                appraisal_id = int(appraisal_id)
+            except ValueError:
+                appraisal_id = None
+
+        if not subject or not description:
+            flash("Please provide both subject and detailed description of the complaint.", "danger")
+        else:
+            db.create_investigation(
+                employee_id=emp["employee_id"],
+                manager_id=emp.get("manager_id"),
+                higher_authority_id=None,
+                issue_type=issue_type,
+                subject=subject,
+                description=description,
+                evidence_details=evidence,
+                appraisal_id=appraisal_id
+            )
+            flash("HR Complaint registered securely. HR administration will investigate.", "success")
+            return redirect(url_for("employee_investigations"))
+
     investigations = db.get_investigations(employee_id=emp["employee_id"])
     appraisals = db.get_appraisals(employee_id=emp["employee_id"])
     appeals = db.get_appeals(employee_id=emp["employee_id"])
@@ -606,6 +583,123 @@ def employee_investigations():
     )
 
 
+@app.route("/employee/claims", methods=["GET", "POST"])
+@login_required
+@role_required("employee")
+def employee_claims():
+    emp = db.get_employee_by_user_id(session["user_id"])
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        description = request.form.get("description", "").strip()
+        appraisal_period = request.form.get("appraisal_period", "FY2026-Q1").strip()
+        work_date = request.form.get("work_date") or None
+        document_reference = request.form.get("document_reference", "").strip() or None
+
+        if not title or not description:
+            flash("Please provide both title and description for your claim.", "danger")
+        else:
+            db.create_claim(
+                employee_id=emp["employee_id"],
+                appraisal_period=appraisal_period,
+                title=title,
+                description=description,
+                work_date=work_date,
+                document_reference=document_reference
+            )
+            flash("Additional work claim submitted successfully!", "success")
+            return redirect(url_for("employee_claims"))
+
+    claims = db.get_claims_by_employee(emp["employee_id"])
+    return render_template(
+        "employee/claims.html",
+        active_page="claims",
+        employee=emp,
+        claims=claims
+    )
+
+
+@app.route("/employee/promotions", methods=["GET", "POST"])
+@login_required
+@role_required("employee")
+def employee_promotions():
+    emp = db.get_employee_by_user_id(session["user_id"])
+    task_avg, review_count = db.calculate_task_average(emp["employee_id"])
+    eligibility = db.check_promotion_eligibility(emp["employee_id"])
+    tasks = db.get_tasks_by_employee(emp["employee_id"])
+    history = db.get_promotions_history(employee_id=emp["employee_id"])
+
+    if request.method == "POST":
+        reason = request.form.get("reason", "").strip()
+        doc_ref = request.form.get("document_reference", "").strip() or None
+
+        if not eligibility["eligible"]:
+            flash(f"Promotion appeal rejected: Task average rating ({task_avg:.2f}) must be strictly greater than 4.60.", "danger")
+            return redirect(url_for("employee_promotions"))
+
+        if not reason:
+            flash("Please state your justification and achievements for promotion.", "danger")
+            return redirect(url_for("employee_promotions"))
+
+        db.create_promotion_request(
+            employee_id=emp["employee_id"],
+            manager_id=emp.get("manager_id"),
+            reason=reason,
+            document_reference=doc_ref,
+            task_average=task_avg
+        )
+        flash("Promotion appeal submitted to HR! Official review decision will be sent to your Gmail.", "success")
+        return redirect(url_for("employee_promotions"))
+
+    return render_template(
+        "employee/promotions.html",
+        active_page="promotions",
+        employee=emp,
+        task_avg=task_avg,
+        review_count=review_count,
+        eligibility=eligibility,
+        tasks=tasks,
+        history=history
+    )
+
+
+@app.route("/employee/projects")
+@login_required
+@role_required("employee")
+def employee_projects():
+    emp = db.get_employee_by_user_id(session["user_id"])
+    projects = db.get_projects(emp["employee_id"])
+    tasks = db.get_tasks_by_employee(emp["employee_id"])
+    task_avg, review_count = db.calculate_task_average(emp["employee_id"])
+    return render_template(
+        "employee/projects.html",
+        active_page="projects",
+        employee=emp,
+        projects=projects,
+        tasks=tasks,
+        task_avg=task_avg,
+        review_count=review_count
+    )
+
+
+@app.route("/employee/tasks/submit", methods=["POST"])
+@login_required
+@role_required("employee")
+def employee_submit_task():
+    emp = db.get_employee_by_user_id(session["user_id"])
+    task_id = request.form.get("task_id")
+    status = request.form.get("status", "COMPLETED").strip().upper()
+    result = request.form.get("employee_result", "").strip() or None
+    reason = request.form.get("employee_reason", "").strip() or None
+
+    if not task_id:
+        flash("Invalid task selected.", "danger")
+        return redirect(url_for("employee_projects"))
+
+    db.submit_task_result(int(task_id), emp["employee_id"], status, employee_result=result, employee_reason=reason)
+    flash(f"Task status updated to {status}.", "success")
+    return redirect(url_for("employee_projects"))
+
+
 @app.route("/employee/documents")
 @login_required
 @role_required("employee")
@@ -617,20 +711,6 @@ def employee_documents():
         active_page="documents",
         employee=emp,
         documents=documents
-    )
-
-
-@app.route("/employee/projects")
-@login_required
-@role_required("employee")
-def employee_projects():
-    emp = db.get_employee_by_user_id(session["user_id"])
-    projects = db.get_projects(emp["employee_id"])
-    return render_template(
-        "employee/projects.html",
-        active_page="projects",
-        employee=emp,
-        projects=projects
     )
 
 
@@ -656,6 +736,84 @@ def manager_dashboard():
         team=team,
         appraisals=appraisals
     )
+
+
+@app.route("/manager/claims", methods=["GET", "POST"])
+@login_required
+@role_required("manager")
+def manager_claims():
+    user_id = session["user_id"]
+    mgr = db.get_employee_by_user_id(user_id)
+    if request.method == "POST":
+        try:
+            claim_id = int(request.form.get("claim_id", ""))
+        except (TypeError, ValueError):
+            flash("Please select a valid claim to review.", "danger")
+            return redirect(url_for("manager_claims"))
+        status = request.form.get("status", "APPROVED").strip().upper()
+        comments = request.form.get("comments", "").strip() or None
+        claim = db.get_claim_by_id(claim_id)
+        if not claim or claim.get("assigned_manager_id") != user_id:
+            flash("This claim is not assigned to your team.", "danger")
+            return redirect(url_for("manager_claims"))
+        db.review_claim(claim_id, user_id, status, manager_comments=comments)
+        flash(f"Claim #{claim_id} review recorded as {status}.", "success")
+        return redirect(url_for("manager_claims"))
+
+    claims = db.get_claims_for_manager(user_id)
+    return render_template("manager/claims.html", active_page="claims", manager=mgr, claims=claims)
+
+
+@app.route("/manager/projects")
+@login_required
+@role_required("manager")
+def manager_projects():
+    user_id = session["user_id"]
+    mgr = db.get_employee_by_user_id(user_id)
+    team_members = db.get_team_members(user_id)
+    all_projects = []
+    for member in team_members:
+        member_projs = db.get_projects(member["employee_id"])
+        all_projects.extend(member_projs)
+    tasks = db.get_tasks_by_manager(user_id)
+    return render_template(
+        "manager/projects.html",
+        active_page="projects",
+        manager=mgr,
+        projects=all_projects,
+        tasks=tasks,
+        team=team_members
+    )
+
+
+@app.route("/manager/tasks/review", methods=["POST"])
+@login_required
+@role_required("manager")
+def manager_review_task():
+    user_id = session["user_id"]
+    try:
+        task_id = int(request.form.get("task_id", ""))
+    except (TypeError, ValueError):
+        flash("Please select a valid task to score.", "danger")
+        return redirect(url_for("manager_projects"))
+    try:
+        rating = float(request.form.get("rating", 5.0))
+    except (TypeError, ValueError):
+        flash("Rating must be a number between 1.00 and 5.00.", "danger")
+        return redirect(url_for("manager_projects"))
+    if not Config.MIN_RATING <= rating <= Config.MAX_RATING:
+        flash("Rating must be between 1.00 and 5.00.", "danger")
+        return redirect(url_for("manager_projects"))
+    comments = request.form.get("comments", "").strip() or None
+
+    task = db.get_task_by_id(task_id)
+    if not task or task.get("manager_id") != user_id:
+        flash("You are not assigned to review this task.", "danger")
+        return redirect(url_for("manager_projects"))
+
+    db.review_task(task_id, user_id, rating, comments=comments)
+    flash(f"Task #{task_id} successfully scored {rating:.2f}/5.00 with manager feedback!", "success")
+    return redirect(url_for("manager_projects"))
 
 
 @app.route("/manager/appraisals")
@@ -703,6 +861,26 @@ def manager_documents():
     )
 
 
+@app.route("/hr/documents")
+@login_required
+@role_required("hr")
+def hr_documents():
+    documents = db.get_documents()
+    return render_template(
+        "hr/documents.html",
+        active_page="documents",
+        documents=documents
+    )
+
+
+@app.route("/hr/appeals")
+@login_required
+@role_required("hr")
+def hr_appeals():
+    appeals = db.get_appeals(hr_user_id=session["user_id"])
+    return render_template("hr/appeals.html", active_page="appeals", appeals=appeals)
+
+
 @app.route("/manager/team")
 @login_required
 @role_required("manager")
@@ -718,25 +896,6 @@ def manager_team():
     )
 
 
-@app.route("/manager/projects")
-@login_required
-@role_required("manager")
-def manager_projects():
-    user_id = session["user_id"]
-    mgr = db.get_employee_by_user_id(user_id)
-    team_members = db.get_team_members(user_id)
-    all_projects = []
-    for member in team_members:
-        member_projs = db.get_projects(member["employee_id"])
-        all_projects.extend(member_projs)
-    return render_template(
-        "manager/projects.html",
-        active_page="projects",
-        manager=mgr,
-        projects=all_projects
-    )
-
-
 # ============================================================
 # HR ROUTES & APIS
 # ============================================================
@@ -748,13 +907,106 @@ def hr_dashboard():
     metrics = db.get_hr_dashboard_metrics()
     recent_logs = db.get_audit_logs(limit=8)
     investigations = db.get_investigations()
+    promotion_requests = db.get_promotion_requests_for_hr(status="SUBMITTED")
     return render_template(
         "hr/dashboard.html",
         active_page="dashboard",
         metrics=metrics,
         recent_logs=recent_logs,
+        investigations=investigations,
+        promotion_requests=promotion_requests
+    )
+
+
+@app.route("/hr/promotions")
+@login_required
+@role_required("hr")
+def hr_promotions():
+    status_filter = request.args.get("status")
+    requests = db.get_promotion_requests_for_hr(status=status_filter)
+    history = db.get_promotions_history()
+    return render_template(
+        "hr/promotions.html",
+        active_page="promotions",
+        requests=requests,
+        history=history,
+        status_filter=status_filter
+    )
+
+
+@app.route("/hr/promotions/<int:request_id>/approve", methods=["POST"])
+@login_required
+@role_required("hr")
+def hr_approve_promotion(request_id):
+    hr_response = request.form.get("hr_response", "Promotion approved on verified performance merit.").strip()
+    new_designation = request.form.get("new_designation", "Engineering Manager").strip()
+
+    temp_password = "Mgr@" + secrets.token_hex(4) + "!"
+    temp_pwd_hash = generate_password_hash(temp_password)
+
+    try:
+        result = db.approve_promotion_transaction(
+            request_id=request_id,
+            hr_user_id=session["user_id"],
+            temp_password_hash=temp_pwd_hash,
+            hr_response=hr_response,
+            new_designation=new_designation
+        )
+
+        # Dispatch official promotion email via SMTP
+        email_service.send_promotion_email(
+            to_address=result["email"],
+            employee_name=result["name"],
+            new_role=result["new_role"],
+            new_designation=result["new_designation"],
+            temp_password=temp_password,
+            task_average=result["task_average"]
+        )
+
+        flash(f"🎉 Promotion approved for {result['name']}! Official Gmail dispatched with temporary password: {temp_password}", "success")
+    except Exception as e:
+        flash(f"Promotion approval failed: {str(e)}", "danger")
+
+    return redirect(url_for("hr_promotions"))
+
+
+@app.route("/hr/promotions/<int:request_id>/reject", methods=["POST"])
+@login_required
+@role_required("hr")
+def hr_reject_promotion(request_id):
+    hr_response = request.form.get("hr_response", "Promotion criteria not met at this time.").strip()
+    db.reject_promotion_request(request_id, session["user_id"], hr_response)
+    flash(f"Promotion request #{request_id} rejected with feedback.", "info")
+    return redirect(url_for("hr_promotions"))
+
+
+@app.route("/hr/investigations")
+@login_required
+@role_required("hr")
+def hr_investigations():
+    investigations = db.get_investigations()
+    return render_template(
+        "hr/investigations.html",
+        active_page="investigations",
         investigations=investigations
     )
+
+
+@app.route("/hr/investigations/resolve", methods=["POST"])
+@login_required
+@role_required("hr")
+def hr_resolve_investigation():
+    try:
+        inv_id = int(request.form.get("investigation_id", ""))
+    except (TypeError, ValueError):
+        flash("Please select a valid investigation to resolve.", "danger")
+        return redirect(url_for("hr_investigations"))
+    status = request.form.get("status", "RESOLVED_UPHELD")
+    response_notes = request.form.get("authority_response", "").strip() or None
+
+    db.resolve_investigation(inv_id, session["user_id"], status, authority_response=response_notes)
+    flash(f"Investigation #{inv_id} resolved with status {status}.", "success")
+    return redirect(url_for("hr_investigations"))
 
 
 @app.route("/hr/employees")
@@ -772,18 +1024,6 @@ def hr_employees():
         managers=managers,
         search=search,
         department=department
-    )
-
-
-@app.route("/hr/investigations")
-@login_required
-@role_required("hr")
-def hr_investigations():
-    investigations = db.get_investigations()
-    return render_template(
-        "hr/investigations.html",
-        active_page="investigations",
-        investigations=investigations
     )
 
 
@@ -808,6 +1048,158 @@ def hr_reports():
         "hr/reports.html",
         active_page="reports",
         reports=reports
+    )
+
+
+# ============================================================
+# ADMINISTRATOR ROLE ROUTES
+# ============================================================
+
+@app.route("/administrator/dashboard")
+@login_required
+@role_required("administrator")
+def administrator_dashboard():
+    metrics = db.get_admin_dashboard_metrics()
+    projects = db.get_all_projects_admin()
+    tasks = db.get_all_tasks_admin()
+    employees = db.get_all_employees_admin()
+    claims = db.get_all_claims_admin()
+    recent_logs = db.get_audit_logs(limit=10)
+    return render_template(
+        "administrator/dashboard.html",
+        active_page="dashboard",
+        metrics=metrics,
+        projects=projects,
+        tasks=tasks,
+        employees=employees,
+        claims=claims,
+        recent_logs=recent_logs
+    )
+
+
+@app.route("/administrator/projects", methods=["GET", "POST"])
+@login_required
+@role_required("administrator")
+def administrator_projects():
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        try:
+            employee_id = int(request.form.get("employee_id", ""))
+        except (TypeError, ValueError):
+            employee_id = None
+        try:
+            manager_id = int(request.form.get("manager_id", ""))
+        except (TypeError, ValueError):
+            manager_id = None
+        category = request.form.get("category", "General").strip()
+        description = request.form.get("description", "").strip()
+        priority = request.form.get("priority", "Medium").strip()
+        due_date = request.form.get("due_date") or None
+
+        if not name or not employee_id or not manager_id or not db.is_user_in_roles(manager_id, ("manager",)):
+            flash("Project name, assigned employee, and a valid team manager are required.", "danger")
+        else:
+            db.update_employee(employee_id, manager_id=manager_id)
+            db.create_project_admin(name, employee_id, category, description, priority, due_date)
+            flash(f"Project '{name}' created and assigned successfully!", "success")
+            return redirect(url_for("administrator_projects"))
+
+    projects = db.get_all_projects_admin()
+    employees = db.get_all_employees_admin()
+    managers = db.get_users_by_roles(["manager"])
+    return render_template(
+        "administrator/projects.html",
+        active_page="projects",
+        projects=projects,
+        employees=employees,
+        managers=managers
+    )
+
+
+@app.route("/administrator/tasks", methods=["GET", "POST"])
+@app.route("/administrator/employees", methods=["GET", "POST"])
+@login_required
+@role_required("administrator")
+def administrator_tasks():
+    if request.method == "POST":
+        employee_id_raw = request.form.get("employee_id")
+        project_id_raw = request.form.get("project_id")
+        title = request.form.get("title", "").strip()
+        description = request.form.get("description", "").strip()
+        due_date = request.form.get("due_date") or None
+        manager_id_raw = request.form.get("manager_id")
+
+        if not title or not employee_id_raw or not manager_id_raw:
+            flash("Task title, assigned employee, and team manager are required.", "danger")
+        else:
+            try:
+                employee_id = int(employee_id_raw)
+            except (TypeError, ValueError):
+                flash("Please select a valid employee.", "danger")
+                return redirect(url_for("administrator_tasks"))
+            try:
+                manager_id = int(manager_id_raw)
+            except (TypeError, ValueError):
+                flash("Please select a valid team manager.", "danger")
+                return redirect(url_for("administrator_tasks"))
+            if not db.is_user_in_roles(manager_id, ("manager",)):
+                flash("Please select a valid team manager.", "danger")
+                return redirect(url_for("administrator_tasks"))
+            db.update_employee(employee_id, manager_id=manager_id)
+            project_id = None
+            if project_id_raw and str(project_id_raw).isdigit():
+                project_id = int(project_id_raw)
+            else:
+                all_projs = db.get_all_projects_admin()
+                if all_projs:
+                    project_id = all_projs[0]["project_id"]
+                else:
+                    project_id = db.create_project_admin(
+                        name="Enterprise Operational Initiatives",
+                        employee_id=employee_id,
+                        category="Core Systems",
+                        description="General corporate milestones and deliverables."
+                    )
+
+            project = db.get_project_by_id(project_id)
+            if not project or project.get("employee_id") != employee_id:
+                flash("The selected project must belong to the assigned employee.", "danger")
+                return redirect(url_for("administrator_tasks"))
+
+            db.create_project_task(project_id, employee_id, session["user_id"], title, description, due_date)
+            flash(f"Task '{title}' allocated to employee successfully!", "success")
+            return redirect(url_for("administrator_tasks"))
+
+    tasks = db.get_all_tasks_admin()
+    projects = db.get_all_projects_admin()
+    employees = db.get_all_employees_admin()
+    managers = db.get_users_by_roles(["manager"])
+    return render_template(
+        "administrator/tasks.html",
+        active_page="tasks",
+        tasks=tasks,
+        projects=projects,
+        employees=employees,
+        managers=managers
+    )
+
+
+@app.route("/administrator/employees-list")
+@login_required
+@role_required("administrator")
+def administrator_employees():
+    return redirect(url_for("administrator_tasks"))
+
+
+@app.route("/administrator/audit-logs")
+@login_required
+@role_required("administrator")
+def administrator_audit_logs():
+    logs = db.get_audit_logs(limit=200)
+    return render_template(
+        "administrator/audit_logs.html",
+        active_page="audit_logs",
+        logs=logs
     )
 
 
@@ -852,71 +1244,47 @@ def api_login():
     if not user or not check_password_hash(user["password_hash"], password):
         return jsonify({"success": False, "message": "Invalid email address or password."}), 401
 
-    otp_code = f"{secrets.randbelow(10000):04d}"
-    db.create_otp(user["user_id"], otp_code, expiry_seconds=Config.OTP_EXPIRY_SECONDS)
-    email_service.send_otp_email(user["email"], otp_code)
-
-    session.clear()
-    session["pre_auth_user_id"] = user["user_id"]
-    session["pre_auth_email"] = user["email"]
-
-    return jsonify({
-        "success": True,
-        "otp_required": True,
-        "user_id": user["user_id"],
-        "email": user["email"],
-        "message": f"Verification code dispatched to {user['email']}. Please verify to complete login."
-    }), 200
-
-
-@app.route("/api/verify-otp", methods=["POST"])
-def api_verify_otp():
-    data = request.get_json() or {}
-    user_id = data.get("user_id") or session.get("pre_auth_user_id")
-    otp_code = str(data.get("otp_code", "")).strip()
-
-    if not user_id or not otp_code:
-        return jsonify({"success": False, "message": "User ID and OTP code are required."}), 422
-
-    bypass_debug = getattr(Config, "OTP_BYPASS_DEBUG", False) and getattr(Config, "DEBUG", False)
-    success = False
-    msg = ""
-
-    if bypass_debug and otp_code == "0000":
-        success = True
-        msg = "Dev OTP bypass accepted."
-    else:
-        success, msg = db.verify_user_otp(user_id, otp_code)
-
-    if not success:
-        return jsonify({"success": False, "message": msg}), 400
-
-    user = db.get_user_by_id(user_id)
-    if not user:
-        return jsonify({"success": False, "message": "User record not found."}), 404
-
     session.clear()
     session["user_id"] = user["user_id"]
     session["name"] = user["name"]
     session["email"] = user["email"]
-    session["role"] = user["role"].lower()
+    session["role"] = "administrator" if user["role"].lower() == "admin" else user["role"].lower()
     session["must_change_password"] = bool(user.get("must_change_password"))
     session["user"] = {
         "id": user["user_id"],
         "name": user["name"],
         "email": user["email"],
-        "role": user["role"].lower(),
+        "role": session["role"],
         "must_change_password": bool(user.get("must_change_password"))
     }
 
-    db.create_audit_log(user["user_id"], "LOGIN", "USER", user["user_id"], f"User {user['email']} authenticated via 2FA API.")
+    db.create_audit_log(user["user_id"], "LOGIN", "USER", user["user_id"], f"User {user['email']} logged in via API.")
+
+    redirect_url = url_for("employee_dashboard")
+    role = user["role"].lower()
+    if role == "manager":
+        redirect_url = url_for("manager_dashboard")
+    elif role == "hr":
+        redirect_url = url_for("hr_dashboard")
+    elif role in ("administrator", "admin"):
+        redirect_url = url_for("administrator_dashboard")
 
     return jsonify({
         "success": True,
+        "otp_required": False,
+        "user_id": user["user_id"],
+        "email": user["email"],
+        "role": session["role"],
+        "redirect_url": redirect_url,
         "message": "Login successful.",
         "user": session["user"],
         "must_change_password": session["must_change_password"]
     }), 200
+
+
+@app.route("/api/verify-otp", methods=["POST"])
+def api_verify_otp():
+    return jsonify({"success": True, "message": "OTP verification is disabled."}), 200
 
 
 @app.route("/api/force-password-change", methods=["POST"])
@@ -978,6 +1346,8 @@ def api_get_projects():
     role = session.get("role")
     if role == "employee":
         emp = db.get_employee_by_user_id(session["user_id"])
+        if not emp:
+            return jsonify({"success": False, "message": "Employee profile not found"}), 404
         projects = db.get_projects(emp["employee_id"])
     elif role == "manager":
         team = db.get_team_members(session["user_id"])
@@ -1037,8 +1407,14 @@ def api_update_project(project_id):
     if not proj:
         return jsonify({"success": False, "message": "Project not found"}), 404
 
-    # Permission check
-    if session.get("role") == "employee" and proj["employee_user_id"] != session["user_id"]:
+    role = session.get("role", "").lower()
+    user_id = session["user_id"]
+    allowed = role == "administrator"
+    if role == "employee":
+        allowed = proj["employee_user_id"] == user_id
+    elif role == "manager":
+        allowed = proj.get("manager_id") == user_id
+    if not allowed:
         return jsonify({"success": False, "message": "You are not authorized to modify this project"}), 403
 
     data = request.get_json() or {}
@@ -1064,7 +1440,14 @@ def api_delete_project(project_id):
     if not proj:
         return jsonify({"success": False, "message": "Project not found"}), 404
 
-    if session.get("role") == "employee" and proj["employee_user_id"] != session["user_id"]:
+    role = session.get("role", "").lower()
+    user_id = session["user_id"]
+    allowed = role == "administrator"
+    if role == "employee":
+        allowed = proj["employee_user_id"] == user_id
+    elif role == "manager":
+        allowed = proj.get("manager_id") == user_id
+    if not allowed:
         return jsonify({"success": False, "message": "You are not authorized to delete this project"}), 403
 
     db.delete_project(project_id)
@@ -1107,6 +1490,10 @@ def api_get_appraisal_by_id(appraisal_id):
         return jsonify({"success": False, "message": "Access denied"}), 403
     if role == "manager" and appraisal["manager_id"] != user_id:
         return jsonify({"success": False, "message": "Access denied"}), 403
+    if role == "hr" and appraisal.get("hr_id") not in (None, user_id):
+        return jsonify({"success": False, "message": "Access denied"}), 403
+    if role not in ("employee", "manager", "hr", "administrator"):
+        return jsonify({"success": False, "message": "Access denied"}), 403
 
     return jsonify({"success": True, "data": appraisal}), 200
 
@@ -1148,6 +1535,10 @@ def api_create_appraisal():
     except (TypeError, ValueError):
         return jsonify({"success": False, "message": "Invalid rating format"}), 422
 
+    appraisal_type = data.get("appraisal_type", "Annual Performance Review").strip()
+    key_achievements = data.get("key_achievements", "").strip()
+    improvement_areas = data.get("improvement_areas", "").strip()
+
     appraisal_id = db.create_appraisal(
         employee_id=emp["employee_id"],
         manager_id=manager_id,
@@ -1155,10 +1546,13 @@ def api_create_appraisal():
         appraisal_period=period,
         self_rating=self_rating_val,
         employee_comments=comments,
-        status="UNDER_REVIEW"
+        status="UNDER_REVIEW",
+        appraisal_type=appraisal_type,
+        key_achievements=key_achievements,
+        improvement_areas=improvement_areas
     )
 
-    db.create_audit_log(user_id, "SUBMIT_APPRAISAL", "APPRAISAL", appraisal_id, f"Submitted self-appraisal for {period} with status UNDER_REVIEW.")
+    db.create_audit_log(user_id, "SUBMIT_APPRAISAL", "APPRAISAL", appraisal_id, f"Submitted self-appraisal ({appraisal_type}) for {period} with status UNDER_REVIEW.")
     return jsonify({"success": True, "message": "Appraisal submitted successfully.", "data": {"appraisal_id": appraisal_id}}), 201
 
 
@@ -1172,6 +1566,8 @@ def api_review_appraisal(appraisal_id):
         return jsonify({"success": False, "message": "Appraisal not found"}), 404
     if session.get("role", "").lower() == "manager" and appraisal["manager_id"] != reviewer_id:
         return jsonify({"success": False, "message": "You are not assigned to review this appraisal"}), 403
+    if session.get("role", "").lower() == "hr" and appraisal.get("hr_id") not in (None, reviewer_id):
+        return jsonify({"success": False, "message": "This appraisal is not assigned to your HR account"}), 403
 
     data = request.get_json() or {}
     status = data.get("status", "").upper()
@@ -1213,13 +1609,41 @@ def api_get_documents():
     role = session.get("role")
     if role == "employee":
         emp = db.get_employee_by_user_id(session["user_id"])
+        if not emp:
+            return jsonify({"success": False, "message": "Employee profile not found"}), 404
         docs = db.get_documents(employee_id=emp["employee_id"])
     elif role == "manager":
         docs = db.get_documents(manager_user_id=session["user_id"])
-    else:
+    elif role in ("hr", "administrator"):
         docs = db.get_documents()
+    else:
+        return jsonify({"success": False, "message": "Access denied"}), 403
 
     return jsonify({"success": True, "data": docs}), 200
+
+
+@app.route("/documents/<int:document_id>")
+@login_required
+def download_document(document_id):
+    doc = db.get_document_by_id(document_id)
+    if not doc:
+        abort(404)
+    role = session.get("role", "").lower()
+    allowed = role in ("hr", "administrator")
+    if role == "employee":
+        allowed = doc["employee_user_id"] == session["user_id"]
+    elif role == "manager":
+        allowed = doc.get("manager_id") == session["user_id"]
+    if not allowed:
+        abort(403)
+
+    filename = secure_filename(os.path.basename(doc["document_path"]))
+    private_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+    legacy_path = os.path.join(app.config["BASE_DIR"], "static", "uploads", "documents", filename)
+    path = private_path if os.path.isfile(private_path) else legacy_path
+    if not os.path.isfile(path):
+        abort(404)
+    return send_file(path, as_attachment=False, download_name=secure_filename(doc["document_name"]))
 
 
 @app.route("/api/documents/upload", methods=["POST"])
@@ -1301,6 +1725,9 @@ def api_review_document(document_id):
     doc = db.get_document_by_id(document_id)
     if not doc:
         return jsonify({"success": False, "message": "Document not found"}), 404
+    role = session.get("role", "").lower()
+    if role == "manager" and doc.get("manager_id") != manager_id:
+        return jsonify({"success": False, "message": "This document is not assigned to your team"}), 403
 
     data = request.get_json() or {}
     action = data.get("action", "").lower()
@@ -1376,6 +1803,14 @@ def api_get_manager_appeals():
     return jsonify({"success": True, "data": appeals}), 200
 
 
+@app.route("/api/hr/appeals", methods=["GET"])
+@login_required
+@role_required("hr")
+def api_get_hr_appeals():
+    appeals = db.get_appeals(hr_user_id=session["user_id"])
+    return jsonify({"success": True, "data": appeals}), 200
+
+
 @app.route("/api/appeals/<int:appeal_id>/review", methods=["POST"])
 @login_required
 @role_required("manager", "hr")
@@ -1384,8 +1819,11 @@ def api_review_appeal(appeal_id):
     appeal = db.get_appeal_by_id(appeal_id)
     if not appeal:
         return jsonify({"success": False, "message": "Appeal not found"}), 404
-    if session.get("role", "").lower() == "manager" and appeal["manager_id"] != reviewer_id:
+    reviewer_role = session.get("role", "").lower()
+    if reviewer_role == "manager" and appeal["manager_id"] != reviewer_id:
         return jsonify({"success": False, "message": "You are not assigned to review this appeal"}), 403
+    if reviewer_role == "hr" and appeal.get("hr_id") not in (None, reviewer_id):
+        return jsonify({"success": False, "message": "This appeal is not assigned to your HR account"}), 403
 
     data = request.get_json() or {}
     status = data.get("status", "").lower()
@@ -1395,7 +1833,7 @@ def api_review_appeal(appeal_id):
     if status not in ("approved", "rejected"):
         return jsonify({"success": False, "message": "Status must be 'approved' or 'rejected'"}), 422
     if not manager_response:
-        return jsonify({"success": False, "message": "Manager response comment is required"}), 422
+        return jsonify({"success": False, "message": "A review comment is required"}), 422
 
     db.review_appeal(appeal_id, status, manager_response, appraisal_status)
     db.create_audit_log(reviewer_id, "REVIEW_APPEAL", "APPEAL", appeal_id, f"Reviewer decided appeal #{appeal_id} as {status}.")
@@ -1600,9 +2038,13 @@ def api_get_hr_reports():
 
 @app.route("/api/audit-logs", methods=["GET"])
 @login_required
-@role_required("hr")
+@role_required("hr", "administrator")
 def api_get_audit_logs():
-    limit = int(request.args.get("limit", 200))
+    try:
+        limit = int(request.args.get("limit", 200))
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "message": "limit must be a whole number."}), 422
+    limit = max(1, min(limit, 500))
     logs = db.get_audit_logs(limit=limit)
     return jsonify({"success": True, "data": logs}), 200
 
@@ -1611,11 +2053,6 @@ def api_get_audit_logs():
 # ADMINISTRATOR CONSOLE ROUTES & APIS
 # ============================================================
 
-@app.route("/administrator/dashboard")
-@login_required
-@role_required("administrator")
-def administrator_dashboard():
-    return render_template("administrator/dashboard.html", active_page="dashboard")
 
 
 @app.route("/api/administrator/employees", methods=["GET"])
@@ -1718,6 +2155,14 @@ def api_get_claim_detail(claim_id):
     claim = db.get_claim_by_id(claim_id)
     if not claim:
         return jsonify({"success": False, "message": "Claim record not found."}), 404
+    role = session.get("role", "").lower()
+    user_id = session["user_id"]
+    if role == "employee" and claim.get("employee_user_id") != user_id:
+        return jsonify({"success": False, "message": "Access denied"}), 403
+    if role == "manager" and claim.get("assigned_manager_id") != user_id:
+        return jsonify({"success": False, "message": "Access denied"}), 403
+    if role not in ("employee", "manager", "hr", "administrator"):
+        return jsonify({"success": False, "message": "Access denied"}), 403
     return jsonify({"success": True, "data": claim}), 200
 
 
@@ -1735,6 +2180,8 @@ def api_review_claim(claim_id):
     claim = db.get_claim_by_id(claim_id)
     if not claim:
         return jsonify({"success": False, "message": "Claim record not found."}), 404
+    if session.get("role", "").lower() == "manager" and claim.get("assigned_manager_id") != session["user_id"]:
+        return jsonify({"success": False, "message": "This claim is not assigned to your team"}), 403
 
     db.review_claim(claim_id, session["user_id"], status, comments)
     return jsonify({"success": True, "message": f"Claim has been {status.lower()}."}), 200
@@ -1754,6 +2201,7 @@ def api_create_task():
     title = data.get("title", "").strip()
     description = data.get("description", "").strip() or None
     due_date = data.get("due_date") or None
+    manager_id = data.get("manager_id")
 
     if not project_id or not employee_id or not title:
         return jsonify({"success": False, "message": "Project, employee, and task title are required."}), 422
@@ -1763,6 +2211,28 @@ def api_create_task():
         employee_id = int(employee_id)
     except (ValueError, TypeError):
         return jsonify({"success": False, "message": "Invalid project or employee ID."}), 422
+
+    project = db.get_project_by_id(project_id)
+    employee = db.get_employee_by_id(employee_id)
+    if not project or project.get("employee_id") != employee_id or not employee:
+        return jsonify({"success": False, "message": "The selected project must belong to the assigned employee."}), 422
+
+    role = session.get("role", "").lower()
+    if role == "administrator":
+        try:
+            manager_id = int(manager_id)
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "message": "A responsible team manager is required."}), 422
+        if not db.is_user_in_roles(manager_id, ("manager",)):
+            return jsonify({"success": False, "message": "The selected team manager is invalid."}), 422
+        db.update_employee(employee_id, manager_id=manager_id)
+    elif role == "manager":
+        current_manager = employee.get("manager_id")
+        if current_manager not in (None, session["user_id"]):
+            return jsonify({"success": False, "message": "You cannot assign work to another manager's employee."}), 403
+        db.update_employee(employee_id, manager_id=session["user_id"])
+    elif role == "hr" and not employee.get("manager_id"):
+        return jsonify({"success": False, "message": "Assign a team manager to this employee before allocating work."}), 422
 
     task_id = db.create_project_task(
         project_id=project_id,
@@ -1786,12 +2256,13 @@ def api_get_tasks():
         tasks = db.get_tasks_by_employee(emp["employee_id"])
     elif role == "manager":
         tasks = db.get_tasks_by_manager(session["user_id"])
-    else:  # hr, administrator
+    elif role in ("hr", "administrator"):
         tasks = db.execute_query("""
-            SELECT pt.*, p.project_name, e.employee_code, e.department,
+            SELECT pt.*, p.name AS project_name, e.employee_code, e.department,
                    u.name as employee_name, u.email as employee_email,
                    ab.name as assigned_by_name,
-                   tr.review_id, tr.rating, tr.comments as review_comments, tr.reviewed_at
+                   tr.review_id, tr.rating AS manager_rating,
+                   tr.comments AS manager_comments, tr.reviewed_at
             FROM project_tasks pt
             JOIN projects p ON pt.project_id = p.project_id
             JOIN employees e ON pt.employee_id = e.employee_id
@@ -1800,6 +2271,8 @@ def api_get_tasks():
             LEFT JOIN task_reviews tr ON pt.task_id = tr.task_id
             ORDER BY pt.created_at DESC
         """, fetchall=True) or []
+    else:
+        return jsonify({"success": False, "message": "Access denied"}), 403
 
     return jsonify({"success": True, "data": tasks}), 200
 
@@ -1829,6 +2302,15 @@ def api_get_task_detail(task_id):
     task = db.get_task_by_id(task_id)
     if not task:
         return jsonify({"success": False, "message": "Task not found."}), 404
+    role = session.get("role", "").lower()
+    if role == "employee":
+        emp = db.get_employee_by_user_id(session["user_id"])
+        if not emp or task["employee_id"] != emp["employee_id"]:
+            return jsonify({"success": False, "message": "Access denied"}), 403
+    elif role == "manager" and task.get("manager_id") != session["user_id"]:
+        return jsonify({"success": False, "message": "Access denied"}), 403
+    elif role not in ("manager", "hr", "administrator"):
+        return jsonify({"success": False, "message": "Access denied"}), 403
     return jsonify({"success": True, "data": task}), 200
 
 
@@ -1873,6 +2355,8 @@ def api_review_task(task_id):
     task = db.get_task_by_id(task_id)
     if not task:
         return jsonify({"success": False, "message": "Task not found."}), 404
+    if session.get("role", "").lower() == "manager" and task.get("manager_id") != session["user_id"]:
+        return jsonify({"success": False, "message": "This task is not assigned to your team"}), 403
 
     db.review_task(task_id, session["user_id"], rating_val, comments)
     return jsonify({"success": True, "message": f"Task rating recorded ({rating_val:.2f}/5.00)."}), 200
@@ -1893,6 +2377,18 @@ def api_get_task_average():
         except ValueError:
             return jsonify({"success": False, "message": "Invalid employee ID."}), 422
 
+    role = session.get("role", "").lower()
+    if role == "employee":
+        emp = db.get_employee_by_user_id(session["user_id"])
+        if not emp or int(employee_id) != int(emp["employee_id"]):
+            return jsonify({"success": False, "message": "Access denied"}), 403
+    elif role == "manager":
+        emp = db.get_employee_by_id(employee_id)
+        if not emp or emp.get("manager_id") != session["user_id"]:
+            return jsonify({"success": False, "message": "Access denied"}), 403
+    elif role not in ("hr", "administrator"):
+        return jsonify({"success": False, "message": "Access denied"}), 403
+
     avg_rating, total_reviews = db.calculate_task_average(employee_id)
     return jsonify({
         "success": True,
@@ -1910,16 +2406,26 @@ def api_get_task_average():
 @login_required
 def api_get_promotion_eligibility():
     employee_id = request.args.get("employee_id")
-    if not employee_id:
+    role = session.get("role", "").lower()
+    if role == "employee":
         emp = db.get_employee_by_user_id(session["user_id"])
         if not emp:
             return jsonify({"success": False, "message": "Employee record not found."}), 404
         employee_id = emp["employee_id"]
-    else:
+    elif employee_id:
         try:
             employee_id = int(employee_id)
         except ValueError:
             return jsonify({"success": False, "message": "Invalid employee ID."}), 422
+    elif role not in ("hr", "manager", "administrator"):
+        return jsonify({"success": False, "message": "Access denied."}), 403
+    else:
+        return jsonify({"success": False, "message": "Employee ID is required."}), 422
+
+    if role == "manager":
+        employee = db.get_employee_by_id(employee_id)
+        if not employee or employee.get("manager_id") != session["user_id"]:
+            return jsonify({"success": False, "message": "Access denied."}), 403
 
     eligibility = db.check_promotion_eligibility(employee_id)
     return jsonify({"success": True, "data": eligibility}), 200
@@ -1978,6 +2484,15 @@ def api_get_promotion_request_detail(request_id):
     req = db.get_promotion_request_by_id(request_id)
     if not req:
         return jsonify({"success": False, "message": "Promotion request not found."}), 404
+    role = session.get("role", "").lower()
+    if role == "employee":
+        emp = db.get_employee_by_user_id(session["user_id"])
+        if not emp or req.get("employee_id") != emp["employee_id"]:
+            return jsonify({"success": False, "message": "Access denied."}), 403
+    elif role == "manager" and req.get("manager_id") != session["user_id"]:
+        return jsonify({"success": False, "message": "Access denied."}), 403
+    elif role not in ("employee", "manager", "hr", "administrator"):
+        return jsonify({"success": False, "message": "Access denied."}), 403
     return jsonify({"success": True, "data": req}), 200
 
 
@@ -2058,6 +2573,19 @@ def api_get_promotions_history():
         except ValueError:
             return jsonify({"success": False, "message": "Invalid employee ID."}), 422
 
+    role = session.get("role", "").lower()
+    if role == "employee":
+        emp = db.get_employee_by_user_id(session["user_id"])
+        if not emp:
+            return jsonify({"success": False, "message": "Employee record not found."}), 404
+        employee_id = emp["employee_id"]
+    elif role == "manager" and employee_id:
+        employee = db.get_employee_by_id(employee_id)
+        if not employee or employee.get("manager_id") != session["user_id"]:
+            return jsonify({"success": False, "message": "Access denied."}), 403
+    elif role not in ("manager", "hr", "administrator"):
+        return jsonify({"success": False, "message": "Access denied."}), 403
+
     history = db.get_promotions_history(employee_id=employee_id)
     return jsonify({"success": True, "data": history}), 200
 
@@ -2073,6 +2601,13 @@ def api_get_full_appraisal(appraisal_id):
     appraisal = db.get_appraisal_by_id(appraisal_id)
     if not appraisal:
         return jsonify({"success": False, "message": "Appraisal not found."}), 404
+
+    role = session.get("role", "").lower()
+    reviewer_id = session["user_id"]
+    if role == "manager" and appraisal.get("manager_id") != reviewer_id:
+        return jsonify({"success": False, "message": "Access denied"}), 403
+    if role == "hr" and appraisal.get("hr_id") not in (None, reviewer_id):
+        return jsonify({"success": False, "message": "Access denied"}), 403
 
     employee_id = appraisal["employee_id"]
     documents = db.get_documents_by_employee(employee_id)
@@ -2120,6 +2655,7 @@ def internal_server_error(e):
 if __name__ == "__main__":
     try:
         print(f"[DATABASE] Using MySQL host={Config.DB_HOST}, port={Config.DB_PORT}, database={Config.DB_NAME}, user={Config.DB_USER}")
+        db.init_db()
         db.seed_db()
     except Exception as e:
         print(f"[STARTUP WARNING] Database initialization check: {e}")

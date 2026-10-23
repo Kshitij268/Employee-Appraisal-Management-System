@@ -1,44 +1,119 @@
 {% extends "base.html" %}
 
 {% block title %}Manager Dashboard | EAMS{% endblock %}
-{% block page_title %}Management Portal{% endblock %}
+{% block page_title %}Management Command Portal{% endblock %}
 
 {% block content %}
+<!-- Management Header Hero Banner -->
+<div class="card mb-2" style="background: linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%); border: 1px solid rgba(6, 182, 212, 0.3);">
+    <div class="card-body p-0">
+        <div class="d-flex justify-between align-center flex-wrap gap-2">
+            <div class="d-flex align-center gap-2">
+                <div class="brand-icon-box" style="width: 48px; height: 48px; font-size: 22px; background: linear-gradient(135deg, #06b6d4, #3b82f6);">
+                    <i class="fas fa-user-tie"></i>
+                </div>
+                <div>
+                    <h2 style="font-size: 1.35rem; font-weight: 800; color: #fff; margin-bottom: 3px;">
+                        Leadership Console &bull; {{ session.get('name', 'Manager') }}
+                    </h2>
+                    <p style="color: var(--text-secondary); font-size: 0.88rem; margin: 0;">
+                        Direct Reports: <strong style="color: #38bdf8;">{{ team|length }} Team Members</strong> &bull; Pending Reviews: <strong style="color: var(--accent-amber);">{{ metrics.pending_appraisals or 0 }} Appraisals</strong>
+                    </p>
+                </div>
+            </div>
+            <div class="d-flex align-center gap-1">
+                <a href="{{ url_for('manager_appraisals') }}" class="btn btn-primary">
+                    <i class="fas fa-clipboard-check mr-1"></i> Review Appraisals
+                </a>
+                <a href="{{ url_for('manager_claims') }}" class="btn btn-secondary">
+                    <i class="fas fa-receipt mr-1"></i> Claim Reviews
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Key Performance Metrics Grid -->
 <div class="metrics-grid">
-    <div class="metric-card">
-        <div class="metric-label">Direct Reports</div>
-        <div class="metric-value">{{ metrics.direct_report_count or 0 }}</div>
-        <div class="metric-sub">Team members supervised</div>
+    <div class="metric-card" style="border-left: 3px solid #06b6d4;">
+        <div class="metric-label"><i class="fas fa-users" style="color: #38bdf8;"></i> Direct Reports</div>
+        <div class="metric-value" style="color: #38bdf8;">{{ metrics.direct_report_count or team|length }}</div>
+        <div class="metric-sub"><i class="fas fa-user-check mr-1"></i> Active supervised staff</div>
     </div>
 
-    <div class="metric-card">
-        <div class="metric-label">Pending Appraisals</div>
-        <div class="metric-value" style="color: #b91c1c;">{{ metrics.pending_appraisals or 0 }}</div>
-        <div class="metric-sub">Awaiting manager review</div>
+    <div class="metric-card" style="border-left: 3px solid #f43f5e;">
+        <div class="metric-label"><i class="fas fa-clock" style="color: #fb7185;"></i> Pending Appraisals</div>
+        <div class="metric-value" style="color: #fb7185;">{{ metrics.pending_appraisals or 0 }}</div>
+        <div class="metric-sub"><i class="fas fa-exclamation-circle mr-1"></i> Awaiting manager review</div>
     </div>
 
-    <div class="metric-card">
-        <div class="metric-label">Pending Documents</div>
-        <div class="metric-value">{{ metrics.pending_documents or 0 }}</div>
-        <div class="metric-sub">Awaiting verification</div>
+    <div class="metric-card" style="border-left: 3px solid #8b5cf6;">
+        <div class="metric-label"><i class="fas fa-file-shield" style="color: #a78bfa;"></i> Pending Documents</div>
+        <div class="metric-value" style="color: #a78bfa;">{{ metrics.pending_documents or 0 }}</div>
+        <div class="metric-sub"><i class="fas fa-magnifying-glass mr-1"></i> Awaiting verification</div>
     </div>
 
-    <div class="metric-card">
-        <div class="metric-label">Pending Appeals</div>
-        <div class="metric-value" style="color: #b45309;">{{ metrics.pending_appeals or 0 }}</div>
-        <div class="metric-sub">Employee grievance appeals</div>
+    <div class="metric-card" style="border-left: 3px solid #f59e0b;">
+        <div class="metric-label"><i class="fas fa-scale-unbalanced" style="color: #fbbf24;"></i> Rating Appeals</div>
+        <div class="metric-value" style="color: #fbbf24;">{{ metrics.pending_appeals or 0 }}</div>
+        <div class="metric-sub"><i class="fas fa-gavel mr-1"></i> Grievance review queue</div>
     </div>
 
-    <div class="metric-card">
-        <div class="metric-label">Team Projects</div>
-        <div class="metric-value">{{ metrics.total_team_projects or 0 }}</div>
-        <div class="metric-sub">Active project deliverables</div>
+    <div class="metric-card" style="border-left: 3px solid #6366f1;">
+        <div class="metric-label"><i class="fas fa-diagram-project" style="color: #818cf8;"></i> Team Projects</div>
+        <div class="metric-value" style="color: #818cf8;">{{ metrics.total_team_projects or 0 }}</div>
+        <div class="metric-sub"><i class="fas fa-bars-progress mr-1"></i> Active deliverables</div>
     </div>
 
-    <div class="metric-card">
-        <div class="metric-label">Average Performance</div>
-        <div class="metric-value">{{ "%.2f"|format(metrics.avg_team_performance) if metrics.avg_team_performance else '-' }}</div>
-        <div class="metric-sub">Team rating average</div>
+    <div class="metric-card" style="border-left: 3px solid #10b981;">
+        <div class="metric-label"><i class="fas fa-star" style="color: #34d399;"></i> Team Avg Score</div>
+        <div class="metric-value" style="color: #34d399;">
+            {{ "%.2f"|format(metrics.avg_team_performance) if metrics.avg_team_performance else '—' }}
+            <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-muted);">/ 5.00</span>
+        </div>
+        <div class="metric-sub"><i class="fas fa-chart-line mr-1"></i> Calibrated performance</div>
+    </div>
+</div>
+
+<!-- Visual Data Charts Grid -->
+<div class="grid-equal mb-2">
+    <!-- Chart 1: Team Review Status Distribution -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <i class="fas fa-chart-pie"></i> Team Appraisal Review Status
+            </h2>
+            <span class="badge" style="background: rgba(6, 182, 212, 0.15); color: #38bdf8;">Overview</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container" style="height: 240px;">
+                <canvas id="managerStatusChart"></canvas>
+            </div>
+            <div class="d-flex justify-between align-center" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.82rem; color: var(--text-secondary);">
+                <span>Pending Review: <strong style="color: #fb7185;">{{ metrics.pending_appraisals or 0 }}</strong></span>
+                <span>Team Total: <strong style="color: #fff;">{{ team|length }}</strong></span>
+                <span>Active Projects: <strong style="color: #38bdf8;">{{ metrics.total_team_projects or 0 }}</strong></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart 2: Direct Reports Performance Spread -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <i class="fas fa-chart-column"></i> Direct Reports Ratings Calibration
+            </h2>
+            <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">Team Scale</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container" style="height: 240px;">
+                <canvas id="managerTeamScoreChart"></canvas>
+            </div>
+            <div class="d-flex justify-between align-center" style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.82rem; color: var(--text-secondary);">
+                <span>Team Average: <strong style="color: #34d399;">{{ "%.2f"|format(metrics.avg_team_performance) if metrics.avg_team_performance else 'N/A' }}</strong></span>
+                <span>Benchmark: <strong style="color: #fbbf24;">4.60</strong></span>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -46,8 +121,12 @@
     <!-- Direct Reports Directory -->
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">Team Direct Reports ({{ team|length }})</h2>
-            <a href="{{ url_for('manager_team') }}" class="btn btn-secondary btn-sm">Full Team</a>
+            <h2 class="card-title">
+                <i class="fas fa-users-viewfinder"></i> Team Direct Reports ({{ team|length }})
+            </h2>
+            <a href="{{ url_for('manager_team') }}" class="btn btn-secondary btn-sm">
+                <i class="fas fa-users mr-1"></i> Full Team Directory
+            </a>
         </div>
         <div class="card-body">
             {% if team %}
@@ -55,9 +134,9 @@
                     <table class="table">
                         <thead>
                             <tr>
-                                <th>Name</th>
+                                <th>Employee</th>
                                 <th>Designation</th>
-                                <th>Appraisal Status</th>
+                                <th>Appraisal State</th>
                                 <th>Latest Rating</th>
                             </tr>
                         </thead>
@@ -65,21 +144,35 @@
                             {% for member in team %}
                                 <tr>
                                     <td>
-                                        <strong>{{ member.name }}</strong><br>
-                                        <small style="color: var(--text-muted);">{{ member.employee_code }}</small>
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <div class="chip-avatar" style="width: 32px; height: 32px; font-size: 13px;">
+                                                {{ member.name[:1]|upper }}
+                                            </div>
+                                            <div>
+                                                <strong style="color: #fff;">{{ member.name }}</strong>
+                                                <div style="color: var(--text-muted); font-size: 0.78rem; font-family: var(--font-mono);">{{ member.employee_code }}</div>
+                                            </div>
+                                        </div>
                                     </td>
-                                    <td>{{ member.designation or 'Staff' }}</td>
+                                    <td>{{ member.designation or 'Staff Engineer' }}</td>
                                     <td>
                                         {% if member.latest_appraisal_status %}
                                             <span class="badge badge-{{ member.latest_appraisal_status|lower }}">
                                                 {{ member.latest_appraisal_status|replace('_', ' ')|upper }}
                                             </span>
                                         {% else %}
-                                            <span style="color: var(--text-muted); font-size: 0.8rem;">None</span>
+                                            <span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-muted);">NOT FILED</span>
                                         {% endif %}
                                     </td>
                                     <td>
-                                        {{ "%.2f"|format(member.latest_appraisal_rating) if member.latest_appraisal_rating else '-' }}
+                                        {% if member.latest_appraisal_rating %}
+                                            <strong style="color: #34d399; font-family: var(--font-mono); font-size: 1rem;">
+                                                {{ "%.2f"|format(member.latest_appraisal_rating) }}
+                                            </strong>
+                                            <span style="font-size: 0.75rem; color: var(--text-muted);">/ 5.00</span>
+                                        {% else %}
+                                            <span style="color: var(--text-muted); font-size: 0.85rem;">—</span>
+                                        {% endif %}
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -87,58 +180,158 @@
                     </table>
                 </div>
             {% else %}
-                <p style="color: var(--text-muted); padding: 10px 0;">No direct reports assigned to your management profile.</p>
+                <div style="padding: 30px; text-align: center;">
+                    <i class="fas fa-users-slash" style="font-size: 32px; color: var(--text-muted); margin-bottom: 10px;"></i>
+                    <p style="color: var(--text-secondary);">No direct reports assigned to your management profile.</p>
+                </div>
             {% endif %}
         </div>
     </div>
 
-    <!-- Quick Navigation & Pending Reviews -->
+    <!-- Quick Actions & Recent Submissions -->
     <div>
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title">Management Workflows</h3>
+                <h3 class="card-title">
+                    <i class="fas fa-sliders"></i> Management Workflows
+                </h3>
             </div>
-            <div class="card-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                <a href="{{ url_for('manager_appraisals') }}" class="btn btn-secondary">
-                    Review Appraisals ({{ metrics.pending_appraisals or 0 }})
+            <div class="card-body" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <a href="{{ url_for('manager_appraisals') }}" class="btn btn-secondary" style="justify-content: flex-start;">
+                    <i class="fas fa-star-half-stroke mr-1" style="color: #fb7185;"></i> Appraisals ({{ metrics.pending_appraisals or 0 }})
                 </a>
-                <a href="{{ url_for('manager_appeals') }}" class="btn btn-secondary">
-                    Review Appeals ({{ metrics.pending_appeals or 0 }})
+                <a href="{{ url_for('manager_claims') }}" class="btn btn-secondary" style="justify-content: flex-start;">
+                    <i class="fas fa-clipboard-check mr-1" style="color: #34d399;"></i> Claim Reviews
                 </a>
-                <a href="{{ url_for('manager_documents') }}" class="btn btn-secondary">
-                    Review Documents ({{ metrics.pending_documents or 0 }})
+                <a href="{{ url_for('manager_appeals') }}" class="btn btn-secondary" style="justify-content: flex-start;">
+                    <i class="fas fa-scale-unbalanced mr-1" style="color: #fbbf24;"></i> Appeals ({{ metrics.pending_appeals or 0 }})
                 </a>
-                <a href="{{ url_for('manager_team') }}" class="btn btn-secondary">
-                    Manage Team
+                <a href="{{ url_for('manager_documents') }}" class="btn btn-secondary" style="justify-content: flex-start;">
+                    <i class="fas fa-folder-closed mr-1" style="color: #a78bfa;"></i> Documents ({{ metrics.pending_documents or 0 }})
                 </a>
-                <a href="{{ url_for('manager_projects') }}" class="btn btn-secondary">
-                    Team Projects
+                <a href="{{ url_for('manager_projects') }}" class="btn btn-secondary" style="justify-content: flex-start;">
+                    <i class="fas fa-diagram-project mr-1" style="color: #38bdf8;"></i> Team Projects
                 </a>
-                <a href="{{ url_for('manager_profile') }}" class="btn btn-secondary">
-                    Edit Profile
+                <a href="{{ url_for('manager_team') }}" class="btn btn-secondary" style="justify-content: flex-start;">
+                    <i class="fas fa-users-gear mr-1" style="color: var(--primary-light);"></i> Team Directory
                 </a>
             </div>
         </div>
 
         <div class="card">
             <div class="card-header">
-                <h3 class="card-title">Recent Submissions</h3>
+                <h3 class="card-title">
+                    <i class="fas fa-inbox"></i> Incoming Appraisal Submissions
+                </h3>
             </div>
             <div class="card-body">
                 {% if appraisals %}
-                    <ul style="list-style: none; padding: 0; font-size: 0.85rem;">
+                    <ul style="list-style: none; padding: 0; font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px;">
                         {% for app in appraisals[:5] %}
-                            <li style="padding: 6px 0; border-bottom: 1px solid var(--border);">
-                                <strong>{{ app.employee_name }}</strong> submitted <strong>{{ app.appraisal_period }}</strong>
-                                <span class="badge badge-{{ app.status|lower }}" style="margin-left: 6px;">{{ app.status|replace('_', ' ')|upper }}</span>
+                            <li style="padding: 10px 12px; background: rgba(255,255,255,0.02); border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong style="color: #fff;">{{ app.employee_name }}</strong>
+                                    <div style="font-size: 0.78rem; color: var(--text-muted); font-family: var(--font-mono);">{{ app.appraisal_period }}</div>
+                                </div>
+                                <span class="badge badge-{{ app.status|lower }}">{{ app.status|replace('_', ' ')|upper }}</span>
                             </li>
                         {% endfor %}
                     </ul>
                 {% else %}
-                    <p style="color: var(--text-muted); font-size: 0.85rem;">No recent appraisal submissions.</p>
+                    <p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 16px 0;">No pending appraisal submissions awaiting action.</p>
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    if (typeof Chart === "undefined") return;
+
+    // Chart 1: Manager Status Doughnut
+    const ctxStatus = document.getElementById("managerStatusChart");
+    if (ctxStatus) {
+        const pendingApp = parseInt('{{ metrics.pending_appraisals or 0 }}', 10);
+        const pendingDocs = parseInt('{{ metrics.pending_documents or 0 }}', 10);
+        const pendingAppeals = parseInt('{{ metrics.pending_appeals or 0 }}', 10);
+        const totalProjects = parseInt('{{ metrics.total_team_projects or 0 }}', 10);
+
+        new Chart(ctxStatus, {
+            type: "doughnut",
+            data: {
+                labels: ["Pending Appraisals", "Pending Docs", "Rating Appeals", "Team Projects"],
+                datasets: [{
+                    data: [pendingApp || 0.1, pendingDocs || 0.1, pendingAppeals || 0.1, totalProjects || 1],
+                    backgroundColor: [
+                        "#f43f5e",
+                        "#8b5cf6",
+                        "#f59e0b",
+                        "#06b6d4"
+                    ],
+                    borderColor: "var(--bg-surface)",
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: "68%",
+                plugins: {
+                    legend: {
+                        position: "right",
+                        labels: { color: "#94a3b8" }
+                    }
+                }
+            }
+        });
+    }
+
+    // Chart 2: Direct Reports Ratings Bar Chart
+    const ctxScore = document.getElementById("managerTeamScoreChart");
+    if (ctxScore) {
+        {% if team %}
+            const names = [{% for m in team[:5] %}"{{ m.name[:12] }}",{% endfor %}];
+            const ratings = [{% for m in team[:5] %}{{ m.latest_appraisal_rating or 0 }},{% endfor %}];
+        {% else %}
+            const names = ["Direct Report 1", "Direct Report 2", "Direct Report 3"];
+            const ratings = [4.2, 4.7, 3.9];
+        {% endif %}
+
+        new Chart(ctxScore, {
+            type: "bar",
+            data: {
+                labels: names,
+                datasets: [{
+                    label: "Appraisal Rating",
+                    data: ratings,
+                    backgroundColor: "rgba(6, 182, 212, 0.65)",
+                    borderColor: "#38bdf8",
+                    borderWidth: 1.5,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 5,
+                        grid: { color: "rgba(255, 255, 255, 0.06)" }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

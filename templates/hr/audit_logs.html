@@ -27,7 +27,7 @@
                         {% for log in logs %}
                             <tr>
                                 <td>#{{ log.log_id }}</td>
-                                <td style="white-space: nowrap;">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</td>
+                                <td style="white-space: nowrap;">{{ log.created_at if log.created_at else 'N/A' }}</td>
                                 <td>
                                     <strong>{{ log.user_name or 'System' }}</strong><br>
                                     <small style="color: var(--text-muted);">{{ log.user_email or 'System Event' }}</small>

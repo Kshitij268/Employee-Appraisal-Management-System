@@ -36,7 +36,7 @@
                             </td>
                             <td><strong>{{ m.employee_code }}</strong></td>
                             <td>{{ m.location or 'Remote' }}</td>
-                            <td>{{ m.joining_date.strftime('%B %d, %Y') if m.joining_date else 'N/A' }}</td>
+                            <td>{{ m.joining_date if m.joining_date else 'N/A' }}</td>
                             <td>
                                 {% if m.latest_appraisal_status %}
                                     <span class="badge badge-{{ m.latest_appraisal_status|lower }}">

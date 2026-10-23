@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}System Audit Logs - EAMS Admin{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <div class="d-flex justify-between align-center flex-wrap gap-1">
+        <div>
+            <h1 class="page-title">Security & Audit Event Trail</h1>
+            <p class="page-subtitle">Immutable chronological ledger of system logins, promotions, password changes, appraisals, and administrator actions</p>
+        </div>
+        <div class="d-flex gap-1 align-center">
+            <span class="badge badge-info"><span class="badge-dot dot-cyan"></span> Total Records: {{ logs|length }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="content-body">
+    <div class="card">
+        <div class="card-header d-flex justify-between align-center">
+            <h3 class="card-title" style="font-size: 1.15rem; font-weight: 700; color: #1e293b;">
+                <i class="fas fa-shield-alt" style="color: #6366f1; margin-right: 8px;"></i>
+                Audit Log Records
+            </h3>
+        </div>
+        <div class="card-body p-0">
+            {% if logs %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Log ID</th>
+                            <th>Timestamp</th>
+                            <th>User</th>
+                            <th>Action Type</th>
+                            <th>Entity Type</th>
+                            <th>Entity ID</th>
+                            <th>IP Address</th>
+                            <th>Event Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>
+                                <strong style="font-family: monospace; color: #6366f1;">#LOG-{{ log.log_id }}</strong>
+                            </td>
+                            <td style="font-size: 0.82rem; color: #475569; white-space: nowrap;">
+                                {{ log.created_at }}
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; color: #1e293b;">{{ log.user_name or 'System' }}</div>
+                                {% if log.user_id %}
+                                <div style="font-size: 0.72rem; color: #94a3b8;">UID #{{ log.user_id }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge" style="background: #e0e7ff; color: #3730a3; font-weight: 600;">{{ log.action }}</span>
+                            </td>
+                            <td>
+                                <span class="badge" style="background: #f1f5f9; color: #475569;">{{ log.entity_type }}</span>
+                            </td>
+                            <td>
+                                <span style="font-family: monospace; color: #64748b;">{{ log.entity_id or '-' }}</span>
+                            </td>
+                            <td>
+                                <span style="font-family: monospace; font-size: 0.8rem; color: #64748b;">{{ log.ip_address or '127.0.0.1' }}</span>
+                            </td>
+                            <td style="max-width: 250px; font-size: 0.82rem; color: #334155;">
+                                {{ log.details or '-' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state py-3">
+                <p class="text-muted">No audit logs recorded.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

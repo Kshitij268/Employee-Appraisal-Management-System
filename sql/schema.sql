@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS employees (
     address TEXT NULL,
     department VARCHAR(100),
     designation VARCHAR(100),
+    expertise VARCHAR(255) NULL,
     phone VARCHAR(50),
     location VARCHAR(100),
     joining_date DATE,

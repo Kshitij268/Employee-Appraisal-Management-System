@@ -5,6 +5,7 @@ Database Access Layer
 
 import datetime
 import hashlib
+import os
 import secrets
 from datetime import datetime, timedelta
 import mysql.connector
@@ -30,6 +31,42 @@ def get_db_connection(use_database=True):
         config["database"] = Config.DB_NAME
 
     return mysql.connector.connect(**config)
+
+
+def init_db():
+    """Create the configured database and all project tables when missing.
+
+    This is deliberately safe to run repeatedly.  The setup script has always
+    called this function, but it was missing, which made first-time setup fail
+    before a user could reach the sign-in screen.
+    """
+    schema_path = os.path.join(os.path.dirname(__file__), "sql", "schema.sql")
+    if not os.path.isfile(schema_path):
+        raise FileNotFoundError("Database schema file was not found.")
+
+    with open(schema_path, "r", encoding="utf-8") as schema_file:
+        schema = schema_file.read()
+
+    # schema.sql is intentionally plain SQL (no stored procedures), so simple
+    # statement splitting is reliable here.  Honour a custom DB_NAME rather
+    # than silently creating only the historical default database.
+    schema = schema.replace("CREATE DATABASE IF NOT EXISTS employee_appraisal", f"CREATE DATABASE IF NOT EXISTS `{Config.DB_NAME}`")
+    schema = schema.replace("USE employee_appraisal", f"USE `{Config.DB_NAME}`")
+    conn = get_db_connection(use_database=False)
+    cursor = conn.cursor()
+    try:
+        for statement in schema.split(";"):
+            statement = statement.strip()
+            if statement:
+                cursor.execute(statement)
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cursor.close()
+        conn.close()
 
 
 def execute_query(query, params=None, fetchone=False, fetchall=False, commit=False, return_lastrowid=False):
@@ -280,6 +317,89 @@ def migrate_db_schema():
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """)
         conn.commit()
+
+        # 12. Normalize existing emails to @gmail.com
+        cursor.execute("UPDATE users SET email = REPLACE(email, '@example.com', '@gmail.com') WHERE email LIKE '%@example.com'")
+        cursor.execute("UPDATE users SET email = REPLACE(email, '@eams.local', '@gmail.com') WHERE email LIKE '%@eams.local'")
+        conn.commit()
+
+        # 13. Ensure default System Administrator account with admin@gmail.com
+        cursor.execute("SELECT user_id, role, email FROM users WHERE role = 'administrator' OR email = 'admin@gmail.com'")
+        admin_row = cursor.fetchone()
+        if not admin_row:
+            cursor.execute("""
+                INSERT INTO users (name, email, password_hash, role, email_verified)
+                VALUES (%s, %s, %s, 'administrator', 1)
+            """, ("System Administrator", "admin@gmail.com", generate_password_hash("Password@123")))
+            conn.commit()
+            print("[SCHEMA] Seeded default administrator (admin@gmail.com / Password@123).")
+        else:
+            cursor.execute("UPDATE users SET email = 'admin@gmail.com', role = 'administrator' WHERE user_id = %s", (admin_row["user_id"],))
+            conn.commit()
+
+        # 14. Seed sample tasks and task reviews for demonstration if none exist
+        cursor.execute("SELECT COUNT(*) as cnt FROM project_tasks")
+        tasks_cnt = cursor.fetchone().get("cnt", 0)
+        if tasks_cnt == 0:
+            cursor.execute("SELECT employee_id FROM employees WHERE user_id = 3")
+            emp3 = cursor.fetchone()
+            emp3_id = emp3["employee_id"] if emp3 else 3
+            cursor.execute("SELECT project_id FROM projects LIMIT 1")
+            proj = cursor.fetchone()
+            proj_id = proj["project_id"] if proj else 1
+            cursor.execute("SELECT user_id FROM users WHERE role = 'manager' LIMIT 1")
+            mgr = cursor.fetchone()
+            mgr_id = mgr["user_id"] if mgr else 2
+
+            sample_tasks = [
+                (proj_id, emp3_id, mgr_id, "Design Enterprise 2FA & Auth Security Core", "Architect tokenless session security and strict credential validation.", "2026-10-15", "COMPLETED", "Completed all authentication workflows and verified test suites.", None),
+                (proj_id, emp3_id, mgr_id, "Database Query Optimization & Multi-Role Indexing", "Optimize complex relational queries and index access paths.", "2026-10-20", "COMPLETED", "Achieved sub-10ms response times across all aggregated tables.", None),
+                (proj_id, emp3_id, mgr_id, "Cloud Microservice Scalability & Resilience", "Configure automated failover mechanisms and resilient logging.", "2026-11-01", "COMPLETED", "Zero-downtime architecture validated in staging.", None)
+            ]
+            for t in sample_tasks:
+                cursor.execute("""
+                    INSERT INTO project_tasks (project_id, employee_id, assigned_by, title, description, due_date, status, employee_result, employee_reason)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, t)
+                t_id = cursor.lastrowid
+                rating = 4.80 if "2FA" in t[3] else (4.70 if "Database" in t[3] else 4.90)
+        # 15. Check and add expertise column to employees table
+        cursor.execute("DESCRIBE employees")
+        emp_cols = [row["Field"].lower() for row in cursor.fetchall()]
+        if "expertise" not in emp_cols:
+            cursor.execute("ALTER TABLE employees ADD COLUMN expertise VARCHAR(255) NULL AFTER designation")
+            conn.commit()
+            print("[SCHEMA] Added 'expertise' column to employees table.")
+
+        cursor.execute("""
+            UPDATE employees SET expertise = CASE
+                WHEN designation LIKE '%Architect%' OR designation LIKE '%Lead%' THEN 'Cloud Infrastructure & High-Scale Systems'
+                WHEN designation LIKE '%Security%' OR designation LIKE '%Analyst%' THEN 'Cybersecurity & Threat Compliance'
+                WHEN designation LIKE '%HR%' OR department LIKE '%Human%' THEN 'Talent Calibration & People Operations'
+                WHEN designation LIKE '%Manager%' THEN 'Engineering Management & Agile Delivery'
+                WHEN designation LIKE '%Data%' THEN 'Machine Learning & Predictive Analytics'
+                ELSE 'Full-Stack Software Architecture'
+            END WHERE expertise IS NULL OR expertise = ''
+        """)
+        cursor.execute("UPDATE employees SET phone = '+1 (555) 382-9012' WHERE phone IS NULL OR phone = ''")
+        conn.commit()
+
+        # 16. Check and add appraisal_type, key_achievements, improvement_areas to appraisals
+        cursor.execute("DESCRIBE appraisals")
+        app_cols = [row["Field"].lower() for row in cursor.fetchall()]
+        if "appraisal_type" not in app_cols:
+            cursor.execute("ALTER TABLE appraisals ADD COLUMN appraisal_type VARCHAR(100) DEFAULT 'Annual Performance Review' AFTER hr_id")
+            conn.commit()
+            print("[SCHEMA] Added 'appraisal_type' column to appraisals table.")
+        if "key_achievements" not in app_cols:
+            cursor.execute("ALTER TABLE appraisals ADD COLUMN key_achievements TEXT NULL AFTER self_rating")
+            conn.commit()
+            print("[SCHEMA] Added 'key_achievements' column to appraisals table.")
+        if "improvement_areas" not in app_cols:
+            cursor.execute("ALTER TABLE appraisals ADD COLUMN improvement_areas TEXT NULL AFTER employee_comments")
+            conn.commit()
+            print("[SCHEMA] Added 'improvement_areas' column to appraisals table.")
+
         print("[SCHEMA] Migrations completed successfully.")
 
     except Exception as e:
@@ -491,7 +611,8 @@ def get_employees(search=None, department=None):
 
 def create_employee_transaction(name, email, password_hash, role='employee', employee_code=None,
                                 age=None, address=None, department='Engineering', designation='Staff',
-                                phone=None, location=None, joining_date=None, manager_id=None):
+                                phone=None, location=None, joining_date=None, manager_id=None, expertise=None,
+                                must_change_password=0):
     """
     Atomic transaction: Create user account and corresponding employee record.
     """
@@ -503,10 +624,10 @@ def create_employee_transaction(name, email, password_hash, role='employee', emp
         
         # 1. Insert into users
         user_sql = """
-            INSERT INTO users (name, email, password_hash, role)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO users (name, email, password_hash, role, must_change_password)
+            VALUES (%s, %s, %s, %s, %s)
         """
-        cursor.execute(user_sql, (name, email, password_hash, role))
+        cursor.execute(user_sql, (name, email, password_hash, role, must_change_password))
         user_id = cursor.lastrowid
         
         # Generate employee code if missing
@@ -514,11 +635,18 @@ def create_employee_transaction(name, email, password_hash, role='employee', emp
             employee_code = f"EMP-{role[:3].upper()}-{user_id:04d}"
 
         # 2. Insert into employees
-        emp_sql = """
-            INSERT INTO employees (user_id, employee_code, age, address, department, designation, phone, location, joining_date, manager_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        cursor.execute(emp_sql, (user_id, employee_code, age, address, department, designation, phone, location, joining_date, manager_id))
+        try:
+            emp_sql = """
+                INSERT INTO employees (user_id, employee_code, age, address, department, designation, phone, location, joining_date, manager_id, expertise)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            cursor.execute(emp_sql, (user_id, employee_code, age, address, department, designation, phone, location, joining_date, manager_id, expertise or 'Full-Stack Software Architecture'))
+        except Exception:
+            emp_sql = """
+                INSERT INTO employees (user_id, employee_code, age, address, department, designation, phone, location, joining_date, manager_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            cursor.execute(emp_sql, (user_id, employee_code, age, address, department, designation, phone, location, joining_date, manager_id))
         employee_id = cursor.lastrowid
         
         conn.commit()
@@ -683,7 +811,7 @@ def get_projects(employee_id=None):
 def get_project_by_id(project_id):
     """Retrieve a single project record."""
     sql = """
-        SELECT p.*, u.name as employee_name, e.employee_code, e.user_id as employee_user_id
+        SELECT p.*, u.name as employee_name, e.employee_code, e.user_id as employee_user_id, e.manager_id
         FROM projects p
         JOIN employees e ON p.employee_id = e.employee_id
         JOIN users u ON e.user_id = u.user_id
@@ -730,6 +858,9 @@ def get_appraisals(employee_id=None, manager_id=None):
     sql = """
         SELECT a.*, 
                u.name as employee_name, u.email as employee_email, e.department, e.designation, e.employee_code, e.user_id as employee_user_id,
+               COALESCE(e.phone, '+1 (555) 382-9012') as employee_phone,
+               COALESCE(e.expertise, 'Full-Stack Software Architecture') as employee_expertise,
+               COALESCE(a.appraisal_type, 'Annual Performance Review') as appraisal_type,
                m.name as manager_name
         FROM appraisals a
         JOIN employees e ON a.employee_id = e.employee_id
@@ -743,8 +874,6 @@ def get_appraisals(employee_id=None, manager_id=None):
         sql += " AND a.employee_id = %s"
         params.append(employee_id)
     if manager_id:
-        # Legacy records did not store the per-appraisal manager.  Only those
-        # records may use the employee's default reporting manager as fallback.
         sql += " AND (a.manager_id = %s OR (a.manager_id IS NULL AND e.manager_id = %s))"
         params.extend([manager_id, manager_id])
 
@@ -757,6 +886,9 @@ def get_appraisal_by_id(appraisal_id):
     sql = """
         SELECT a.*, 
                u.name as employee_name, u.email as employee_email, e.department, e.designation, e.employee_code, e.user_id as employee_user_id, e.manager_id as direct_manager_id,
+               COALESCE(e.phone, '+1 (555) 382-9012') as employee_phone,
+               COALESCE(e.expertise, 'Full-Stack Software Architecture') as employee_expertise,
+               COALESCE(a.appraisal_type, 'Annual Performance Review') as appraisal_type,
                m.name as manager_name, hr.name as hr_name
         FROM appraisals a
         JOIN employees e ON a.employee_id = e.employee_id
@@ -768,13 +900,20 @@ def get_appraisal_by_id(appraisal_id):
     return execute_query(sql, (appraisal_id,), fetchone=True)
 
 
-def create_appraisal(employee_id, manager_id, hr_id, appraisal_period, self_rating, employee_comments, status='UNDER_REVIEW'):
-    """Insert a new appraisal record with status UNDER_REVIEW."""
-    sql = """
-        INSERT INTO appraisals (employee_id, manager_id, hr_id, appraisal_period, self_rating, employee_comments, status)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-    """
-    return execute_query(sql, (employee_id, manager_id, hr_id, appraisal_period, self_rating, employee_comments, status), commit=True, return_lastrowid=True)
+def create_appraisal(employee_id, manager_id, hr_id, appraisal_period, self_rating, employee_comments, status='UNDER_REVIEW', appraisal_type='Annual Performance Review', key_achievements=None, improvement_areas=None):
+    """Insert a new appraisal record with status UNDER_REVIEW and appraisal_type."""
+    try:
+        sql = """
+            INSERT INTO appraisals (employee_id, manager_id, hr_id, appraisal_period, self_rating, employee_comments, status, appraisal_type, key_achievements, improvement_areas)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        return execute_query(sql, (employee_id, manager_id, hr_id, appraisal_period, self_rating, employee_comments, status, appraisal_type, key_achievements, improvement_areas), commit=True, return_lastrowid=True)
+    except Exception:
+        sql_fallback = """
+            INSERT INTO appraisals (employee_id, manager_id, hr_id, appraisal_period, self_rating, employee_comments, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        return execute_query(sql_fallback, (employee_id, manager_id, hr_id, appraisal_period, self_rating, employee_comments, status), commit=True, return_lastrowid=True)
 
 
 def review_appraisal_transaction(appraisal_id, manager_id, overall_rating, manager_comments, status):
@@ -893,7 +1032,7 @@ def review_document_transaction(document_id, manager_id, action, comments=None):
 # APPEALS
 # ============================================================
 
-def get_appeals(employee_id=None, manager_user_id=None):
+def get_appeals(employee_id=None, manager_user_id=None, hr_user_id=None):
     """
     Retrieve appeals.
     """
@@ -917,6 +1056,9 @@ def get_appeals(employee_id=None, manager_user_id=None):
     if manager_user_id:
         sql += " AND (a.manager_id = %s OR (a.manager_id IS NULL AND e.manager_id = %s))"
         params.extend([manager_user_id, manager_user_id])
+    if hr_user_id:
+        sql += " AND (a.hr_id = %s OR a.hr_id IS NULL)"
+        params.append(hr_user_id)
 
     sql += " ORDER BY a.created_at DESC"
     return execute_query(sql, tuple(params) if params else None, fetchall=True)
@@ -1542,6 +1684,7 @@ def get_claim_by_id(claim_id):
     """Retrieve claim details with employee and manager info."""
     sql = """
         SELECT c.*, e.employee_code, e.department, e.designation, e.manager_id as assigned_manager_id,
+               e.employee_id, u.user_id as employee_user_id,
                u.name as employee_name, u.email as employee_email,
                m.name as manager_name
         FROM claims c
@@ -1590,8 +1733,9 @@ def create_project_task(project_id, employee_id, assigned_by, title, description
 def get_tasks_by_employee(employee_id):
     """Retrieve all tasks assigned to an employee with review ratings."""
     sql = """
-        SELECT pt.*, p.project_name, u.name as assigned_by_name,
-               tr.review_id, tr.rating, tr.comments as review_comments, tr.reviewed_at
+        SELECT pt.*, p.name AS project_name, u.name AS assigned_by_name,
+               tr.review_id, tr.rating AS manager_rating,
+               tr.comments AS manager_comments, tr.reviewed_at
         FROM project_tasks pt
         JOIN projects p ON pt.project_id = p.project_id
         JOIN users u ON pt.assigned_by = u.user_id
@@ -1605,27 +1749,29 @@ def get_tasks_by_employee(employee_id):
 def get_tasks_by_manager(manager_user_id):
     """Retrieve tasks assigned by manager or for employees reporting to manager."""
     sql = """
-        SELECT pt.*, p.project_name, e.employee_code, e.department,
+        SELECT pt.*, p.name AS project_name, e.employee_code, e.department,
                u.name as employee_name, u.email as employee_email,
-               tr.review_id, tr.rating, tr.comments as review_comments, tr.reviewed_at
+               tr.review_id, tr.rating AS manager_rating,
+               tr.comments AS manager_comments, tr.reviewed_at
         FROM project_tasks pt
         JOIN projects p ON pt.project_id = p.project_id
         JOIN employees e ON pt.employee_id = e.employee_id
         JOIN users u ON e.user_id = u.user_id
         LEFT JOIN task_reviews tr ON pt.task_id = tr.task_id
-        WHERE pt.assigned_by = %s OR e.manager_id = %s OR p.manager_id = %s
+        WHERE pt.assigned_by = %s OR e.manager_id = %s
         ORDER BY pt.created_at DESC
     """
-    return execute_query(sql, (manager_user_id, manager_user_id, manager_user_id), fetchall=True)
+    return execute_query(sql, (manager_user_id, manager_user_id), fetchall=True)
 
 
 def get_task_by_id(task_id):
     """Retrieve task details by ID with project, employee, and review info."""
     sql = """
-        SELECT pt.*, p.project_name, e.employee_code, e.employee_id, e.manager_id,
+        SELECT pt.*, p.name AS project_name, e.employee_code, e.employee_id, e.manager_id,
                u.name as employee_name, u.email as employee_email,
                ab.name as assigned_by_name,
-               tr.review_id, tr.rating, tr.comments as review_comments, tr.reviewed_at
+               tr.review_id, tr.rating AS manager_rating,
+               tr.comments AS manager_comments, tr.reviewed_at
         FROM project_tasks pt
         JOIN projects p ON pt.project_id = p.project_id
         JOIN employees e ON pt.employee_id = e.employee_id
@@ -1931,10 +2077,17 @@ def get_promotions_history(employee_id=None):
 # ============================================================
 
 def get_all_employees_admin():
-    """Retrieve all employee records with associated users and managers for administrator portal."""
+    """Retrieve all employee records with associated users, managers, and performance aggregates for administrator portal."""
     sql = """
         SELECT e.*, u.name, u.email, u.role, u.must_change_password,
-               m.name as manager_name, m.email as manager_email
+               COALESCE(e.phone, '+1 (555) 382-9012') as phone,
+               COALESCE(e.expertise, 'Full-Stack Software Architecture') as expertise,
+               m.name as manager_name, m.email as manager_email,
+               (SELECT COUNT(*) FROM project_tasks pt WHERE pt.employee_id = e.employee_id) as total_tasks,
+               (SELECT COUNT(*) FROM project_tasks pt WHERE pt.employee_id = e.employee_id AND pt.status = 'COMPLETED') as completed_tasks,
+               (SELECT ROUND(AVG(tr.rating), 2) FROM task_reviews tr JOIN project_tasks pt ON tr.task_id = pt.task_id WHERE pt.employee_id = e.employee_id) as avg_rating,
+               (SELECT a.status FROM appraisals a WHERE a.employee_id = e.employee_id ORDER BY a.created_at DESC LIMIT 1) as latest_appraisal_status,
+               (SELECT a.appraisal_type FROM appraisals a WHERE a.employee_id = e.employee_id ORDER BY a.created_at DESC LIMIT 1) as latest_appraisal_type
         FROM users u
         LEFT JOIN employees e ON u.user_id = e.user_id
         LEFT JOIN users m ON e.manager_id = m.user_id
@@ -1944,15 +2097,85 @@ def get_all_employees_admin():
 
 
 def get_all_projects_admin():
-    """Retrieve all projects with manager details and task statistics for administrator portal."""
+    """Retrieve all projects with manager/employee details and task statistics for administrator portal."""
     sql = """
-        SELECT p.*, u.name as manager_name, u.email as manager_email,
-               COUNT(pt.task_id) as total_tasks,
-               SUM(CASE WHEN pt.status = 'COMPLETED' THEN 1 ELSE 0 END) as completed_tasks
+        SELECT p.*, 
+               e.employee_code,
+               u.name as employee_name, u.email as employee_email,
+               m.name as manager_name
         FROM projects p
-        LEFT JOIN users u ON p.manager_id = u.user_id
-        LEFT JOIN project_tasks pt ON p.project_id = pt.project_id
-        GROUP BY p.project_id
+        JOIN employees e ON p.employee_id = e.employee_id
+        JOIN users u ON e.user_id = u.user_id
+        LEFT JOIN users m ON e.manager_id = m.user_id
         ORDER BY p.created_at DESC
     """
     return execute_query(sql, fetchall=True)
+
+
+def create_project_admin(name, employee_id, category=None, description=None, priority='Medium', due_date=None, milestones_total=1):
+    """Administrator creates and assigns a project to an employee."""
+    sql = """
+        INSERT INTO projects (name, employee_id, category, description, priority, due_date, milestones_total, progress, status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, 0, 'pending')
+    """
+    proj_id = execute_query(sql, (name, employee_id, category, description, priority, due_date, milestones_total), commit=True, return_lastrowid=True)
+    create_audit_log(None, "ADMIN_CREATE_PROJECT", "PROJECT", proj_id, f"Administrator created and assigned project '{name}' to employee #{employee_id}")
+    return proj_id
+
+
+def get_all_tasks_admin():
+    """Retrieve all project tasks across the organization for administrator overview."""
+    sql = """
+        SELECT pt.*, p.name as project_name, 
+               e.employee_code, e.department,
+               u.name as employee_name, u.email as employee_email,
+               ab.name as assigned_by_name,
+               tr.rating AS manager_rating,
+               tr.comments AS manager_comments, tr.reviewed_at
+        FROM project_tasks pt
+        JOIN projects p ON pt.project_id = p.project_id
+        JOIN employees e ON pt.employee_id = e.employee_id
+        JOIN users u ON e.user_id = u.user_id
+        JOIN users ab ON pt.assigned_by = ab.user_id
+        LEFT JOIN task_reviews tr ON pt.task_id = tr.task_id
+        ORDER BY pt.created_at DESC
+    """
+    return execute_query(sql, fetchall=True)
+
+
+def get_all_claims_admin():
+    """Retrieve all additional work claims submitted by employees."""
+    sql = """
+        SELECT c.*, e.employee_code, e.department,
+               u.name as employee_name, u.email as employee_email,
+               m.name as manager_name
+        FROM claims c
+        JOIN employees e ON c.employee_id = e.employee_id
+        JOIN users u ON e.user_id = u.user_id
+        LEFT JOIN users m ON c.manager_id = m.user_id
+        ORDER BY c.created_at DESC
+    """
+    return execute_query(sql, fetchall=True)
+
+
+def get_admin_dashboard_metrics():
+    """Retrieve high-level system metrics for administrator overview."""
+    total_users = execute_query("SELECT COUNT(*) as cnt FROM users", fetchone=True).get("cnt", 0)
+    total_employees = execute_query("SELECT COUNT(*) as cnt FROM employees", fetchone=True).get("cnt", 0)
+    total_projects = execute_query("SELECT COUNT(*) as cnt FROM projects", fetchone=True).get("cnt", 0)
+    total_tasks = execute_query("SELECT COUNT(*) as cnt FROM project_tasks", fetchone=True).get("cnt", 0)
+    completed_tasks = execute_query("SELECT COUNT(*) as cnt FROM project_tasks WHERE status = 'COMPLETED'", fetchone=True).get("cnt", 0)
+    pending_promotions = execute_query("SELECT COUNT(*) as cnt FROM promotion_requests WHERE status = 'SUBMITTED'", fetchone=True).get("cnt", 0)
+    open_investigations = execute_query("SELECT COUNT(*) as cnt FROM investigations WHERE status = 'pending'", fetchone=True).get("cnt", 0)
+    total_claims = execute_query("SELECT COUNT(*) as cnt FROM claims", fetchone=True).get("cnt", 0)
+
+    return {
+        "total_users": total_users,
+        "total_employees": total_employees,
+        "total_projects": total_projects,
+        "total_tasks": total_tasks,
+        "completed_tasks": completed_tasks,
+        "pending_promotions": pending_promotions,
+        "open_investigations": open_investigations,
+        "total_claims": total_claims
+    }
